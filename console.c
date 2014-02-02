@@ -5,6 +5,9 @@
 #include "fifo.h"
 #include "servo.h"
 
+#include "stm32f4xx_conf.h"
+#include "stm32f4xx.h"
+
 typedef struct {
 	char *commandStr;
 	void (*fn)(uint8_t argc, char *argv[]);
@@ -19,9 +22,11 @@ static char* argv[8];
 
 static void helpFn(uint8_t argc, char *argv[]);
 static void servoCmd(uint8_t argc, char *argv[]);
+static void laserCmd(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
 	{"servo", servoCmd, "Usage: servo <servo number> <position (1000-2000)>"},
+	{"laser", laserCmd, "Usage: laser <0, 1>"},
 	// Add new commands here!
 	{"help", helpFn, "Print this!"},
 	{NULL, NULL, NULL}
@@ -49,15 +54,27 @@ static void helpFn(uint8_t argc, char *argv[]) {
 	}
 }
 
-//
-// Example Commands
-//
 static void servoCmd(uint8_t argc, char *argv[]) {
 	if(argc > 2) {
 		uint8_t servo = (uint8_t)strtoul(argv[1], NULL, 10);
 		uint16_t position = (uint16_t)strtoul(argv[2], NULL, 10);
 		servoSetPosition(servo, position);
-		printf("Setting servo %d to %d\n", servo, position);
+	} else {
+		printf("Invalid arguments\n");
+		
+		argv[1] = argv[0];
+		helpFn(2, argv);
+	}
+}
+
+static void laserCmd(uint8_t argc, char *argv[]) {
+	if(argc > 1) {
+		uint8_t state = (uint8_t)strtoul(argv[1], NULL, 10);
+		if(state) {
+			GPIO_ResetBits(GPIOE, GPIO_Pin_4);		
+		} else {
+			GPIO_SetBits(GPIOE, GPIO_Pin_4);
+		}
 	} else {
 		printf("Invalid arguments\n");
 		
@@ -71,6 +88,10 @@ static void servoCmd(uint8_t argc, char *argv[]) {
 //
 void consoleInit() {
 	servoInit();
+
+	// Init Laser
+	GPIO_Init(GPIOE, &(GPIO_InitTypeDef){GPIO_Pin_4, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
+	GPIO_SetBits(GPIOE, GPIO_Pin_4);
 }
 
 //
