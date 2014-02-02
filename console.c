@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "console.h"
 #include "fifo.h"
+#include "servo.h"
 
 typedef struct {
 	char *commandStr;
@@ -16,12 +18,10 @@ static uint8_t argc;
 static char* argv[8];
 
 static void helpFn(uint8_t argc, char *argv[]);
-static void command1(uint8_t argc, char *argv[]);
-static void command2(uint8_t argc, char *argv[]);
+static void servoCmd(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
-	{"command1", command1, "This is command 1, a test command."},
-	{"command2", command2, "This is command 2, a different, better, test command."},
+	{"servo", servoCmd, "Usage: servo <servo number> <position (1000-2000)>"},
 	// Add new commands here!
 	{"help", helpFn, "Print this!"},
 	{NULL, NULL, NULL}
@@ -52,18 +52,30 @@ static void helpFn(uint8_t argc, char *argv[]) {
 //
 // Example Commands
 //
-static void command1(uint8_t argc, char *argv[]) {
-	printf("Command 1 called with %d arguments!\n", argc - 1);
+static void servoCmd(uint8_t argc, char *argv[]) {
+	if(argc > 2) {
+		uint8_t servo = (uint8_t)strtoul(argv[1], NULL, 10);
+		uint16_t position = (uint16_t)strtoul(argv[2], NULL, 10);
+		servoSetPosition(servo, position);
+		printf("Setting servo %d to %d\n", servo, position);
+	} else {
+		printf("Invalid arguments\n");
+		
+		argv[1] = argv[0];
+		helpFn(2, argv);
+	}
 }
 
 //
-// Example commands
+// Put any initialization code here
 //
-static void command2(uint8_t argc, char *argv[]) {
-	printf("Command 2 called with %d arguments!\n", argc - 1);
+void consoleInit() {
+	servoInit();
 }
 
-
+//
+// Check to see if there is new data and process it if there is
+//
 void consoleProcess() {
 	uint32_t inBytes = fifoSize(&usbRxFifo);
 	if(inBytes > 0) {
