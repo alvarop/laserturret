@@ -1,0 +1,14 @@
+#ifndef __SERVO_H__
+#define __SERVO_H__
+
+#include <stdint.h>
+
+#define TOTAL_STEPPERS	(2)
+
+void stepperInit();
+void stepperSetDirection(uint8_t stepper, uint8_t direction);
+void stepperSetSpeed(uint8_t stepper, uint16_t speed);
+void stepperMove(uint8_t stepper, uint16_t steps);
+void stepperProcess();
+
+#endif

@@ -4,6 +4,7 @@
 #include "console.h"
 #include "fifo.h"
 #include "servo.h"
+#include "stepper.h"
 
 #include "stm32f4xx_conf.h"
 #include "stm32f4xx.h"
@@ -23,10 +24,12 @@ static char* argv[8];
 static void helpFn(uint8_t argc, char *argv[]);
 static void servoCmd(uint8_t argc, char *argv[]);
 static void laserCmd(uint8_t argc, char *argv[]);
+static void stepperCmd(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
 	{"servo", servoCmd, "Usage: servo <servo number> <position (1000-2000)>"},
 	{"laser", laserCmd, "Usage: laser <0, 1>"},
+	{"stepper", stepperCmd, "Usage: stepper <stepper number> <direction> <speed> <count>"},
 	// Add new commands here!
 	{"help", helpFn, "Print this!"},
 	{NULL, NULL, NULL}
@@ -83,11 +86,33 @@ static void laserCmd(uint8_t argc, char *argv[]) {
 	}
 }
 
+static void stepperCmd(uint8_t argc, char *argv[]) {
+	if(argc > 4) {
+		uint8_t stepper = (uint8_t)strtoul(argv[1], NULL, 10);
+		uint16_t direction = (uint16_t)strtoul(argv[2], NULL, 10);
+		uint16_t speed = (uint16_t)strtoul(argv[3], NULL, 10);
+		uint16_t count = (uint16_t)strtoul(argv[4], NULL, 10);
+		
+		printf("Stepper move %d at speed %d in dir %d\n", count, speed, direction);
+
+		stepperSetDirection(stepper, direction);
+		stepperSetSpeed(stepper, speed);
+		stepperMove(stepper, count);
+
+	} else {
+		printf("Invalid arguments\n");
+		
+		argv[1] = argv[0];
+		helpFn(2, argv);
+	}
+}
+
 //
 // Put any initialization code here
 //
 void consoleInit() {
 	servoInit();
+	stepperInit();
 
 	// Init Laser
 	GPIO_Init(GPIOE, &(GPIO_InitTypeDef){GPIO_Pin_4, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
