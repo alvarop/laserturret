@@ -10,6 +10,7 @@ typedef struct {
 	GPIO_TypeDef* powerPort;
 	uint8_t powerPin;
 	uint8_t adcChannel;
+	uint8_t enabled;
 	uint32_t timeHit;
 	uint16_t hitThreshold;
 	uint16_t lowThreshold;
@@ -17,7 +18,7 @@ typedef struct {
 } target_t;
 
 static target_t targets[TOTAL_TARGETS] = {
-	{GPIOA,	1,	ADC1,	GPIOC,	2,	1,	0, 2048, 0, 4096}
+	{GPIOA,	1,	ADC1,	GPIOC,	2,	1,	0, 0, 2048, 0, 4096}
 };
 
 extern volatile uint32_t tickMs;
@@ -112,8 +113,8 @@ void targetCalibrate(uint8_t target, uint8_t state) {
 			targets[target].lowThreshold = samples;
 		}
 
-		targets[target].hitThreshold = (targets[target].highThreshold - targets[target].lowThreshold)/2;
-		printf("New hitThreshold = (%d-%d)/2 %d\n", targets[target].highThreshold, targets[target].lowThreshold, targets[target].hitThreshold);
+		targets[target].hitThreshold = (targets[target].highThreshold - targets[target].lowThreshold)/2 + targets[target].lowThreshold;
+		printf("New hitThreshold = %d\n", targets[target].hitThreshold);
 	}
 }
 
@@ -121,6 +122,8 @@ void targetSet(uint8_t target, uint8_t enable) {
 	if(target < TOTAL_TARGETS) {
 		// Enable target
 		GPIO_WriteBit(targets[target].powerPort, (1 << targets[target].powerPin), (~enable & 1));
+
+		targets[target].enabled = enable;
 
 		if(enable) {
 			targets[target].timeHit = 0;
@@ -144,8 +147,8 @@ void targetProcess() {
 				}
 			}
 
-			if(targets[target].timeHit >= TARGET_HIT_THRESHOLD) {
-				printf("Target %d hit successfully!\n", target);
+			if(targets[target].enabled && (targets[target].timeHit >= TARGET_HIT_THRESHOLD)) {
+				printf("Target %d hit!\n", target);
 				targetSet(target, 0); // Turn off the target
 			}
 		}
