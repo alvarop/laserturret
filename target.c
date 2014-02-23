@@ -16,7 +16,7 @@ typedef struct {
 	uint16_t highThreshold;
 } target_t;
 
-target_t targets[TOTAL_TARGETS] = {
+static target_t targets[TOTAL_TARGETS] = {
 	{GPIOA,	1,	ADC1,	GPIOC,	2,	1,	0, 2048, 0, 4096}
 };
 
@@ -98,8 +98,7 @@ void targetCalibrate(uint8_t target, uint8_t state) {
 		for(uint16_t sample = 0; sample < TARGET_CAL_SAMPLES; sample++) {
 			uint16_t value = targetRead(target);
 			samples += value;
-			printf("read - %d\n", value);
-			delay(168000 * 4);
+			printf("rd - %d\n", value);
 		}
 
 		// Get average
@@ -108,13 +107,13 @@ void targetCalibrate(uint8_t target, uint8_t state) {
 		printf("Average value: %ld\n", samples);
 
 		if(state) {
-			targets[samples].highThreshold = samples;
+			targets[target].highThreshold = samples;
 		} else {
-			targets[samples].lowThreshold = samples;
+			targets[target].lowThreshold = samples;
 		}
 
-		targets[samples].hitThreshold = (targets[samples].highThreshold - targets[samples].lowThreshold)/2;
-		printf("New hitThreshold = (%d-%d)/2 %d\n", targets[samples].highThreshold, targets[samples].lowThreshold, targets[samples].hitThreshold);
+		targets[target].hitThreshold = (targets[target].highThreshold - targets[target].lowThreshold)/2;
+		printf("New hitThreshold = (%d-%d)/2 %d\n", targets[target].highThreshold, targets[target].lowThreshold, targets[target].hitThreshold);
 	}
 }
 
