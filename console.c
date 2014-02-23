@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "console.h"
 #include "fifo.h"
 #include "target.h"
@@ -20,11 +21,15 @@ static void helpFn(uint8_t argc, char *argv[]);
 static void set(uint8_t argc, char *argv[]);
 static void read(uint8_t argc, char *argv[]);
 static void calibrate(uint8_t argc, char *argv[]);
+static void start(uint8_t argc, char *argv[]);
+static void stop(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
 	{"set", set, "Usage: set <target> <0,1>"},
 	{"read", read, "Usage: read <target>"},
 	{"calibrate", calibrate, "Usage: calibrate <target> <hit|miss>"},
+	{"start", start, "Usage: start"},
+	{"stop", stop, "Usage: stop"},
 	// Add new commands here!
 	{"help", helpFn, "Print this!"},
 	{NULL, NULL, NULL}
@@ -53,25 +58,47 @@ static void helpFn(uint8_t argc, char *argv[]) {
 }
 
 //
-// Example Commands
+// Set target enabled/disabled
 //
 static void set(uint8_t argc, char *argv[]) {
-	printf("Command 1 called with %d arguments!\n", argc - 1);
+	if(argc > 1) {
+		uint8_t target = strtoul(argv[1], NULL, 10);
+		uint8_t enable = strtoul(argv[2], NULL, 10);
+		targetSet(target, enable);
+	}
 }
 
 //
-//
+// read target adc value
 //
 static void read(uint8_t argc, char *argv[]) {
-	
+	if(argc > 1) {
+		uint8_t target = strtoul(argv[1], NULL, 10);
+		printf("Target %d = %d\n", target, targetRead(target));
+	}
 }
 
 //
-// Example commands
+// Calibrate high/low value for target
 //
 static void calibrate(uint8_t argc, char *argv[]) {
-	printf("Command 2 called with %d arguments!\n", argc - 1);
+	if(argc > 2) {
+		uint8_t target = strtoul(argv[1], NULL, 10);
+		uint8_t state = strtoul(argv[2], NULL, 10);
+		targetCalibrate(target, state);
+	}
 }
+
+static void start(uint8_t argc, char *argv[]) {
+	printf("Starting targets\n");
+	targetStart();
+}
+
+static void stop(uint8_t argc, char *argv[]) {
+	printf("Stopping targets\n");
+	targetStop();
+}
+
 
 
 void consoleProcess() {

@@ -4,23 +4,52 @@
 #include "stm32f4xx.h"
 
 typedef struct {
-	GPIO_TypeDef* port;
-	uint8_t pin;
+	GPIO_TypeDef* sensePort;
+	uint8_t sensePin;
 	ADC_TypeDef* adc;
+	GPIO_TypeDef* powerPort;
+	uint8_t powerPin;
 	uint8_t adcChannel;
 	uint32_t timeHit;
 	uint16_t hitThreshold;
+	uint16_t lowThreshold;
+	uint16_t highThreshold;
 } target_t;
 
 target_t targets[TOTAL_TARGETS] = {
-	{GPIOA,	1,	ADC1,	1,	0, 8192}
+	{GPIOA,	1,	ADC1,	GPIOC,	2,	1,	0, 2048, 0, 4096}
 };
 
 extern volatile uint32_t tickMs;
-uint32_t targetTimer;
+static uint32_t targetTimer;
+static uint8_t targetsRunning;
+
+void delay(uint32_t delay) {
+	while(delay--) {
+		asm volatile(" nop");
+	}
+}
+
+void targetStart() {
+	targetsRunning = 1;
+
+	for(uint8_t target = 0; target < TOTAL_TARGETS; target++) {
+		targetSet(target, 1);
+	}
+
+	targetTimer = tickMs + TARGET_REFRESH_RATE;
+
+}
+
+void targetStop() {
+	targetsRunning = 0;
+}
+
 
 void targetInit() {
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
+
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE); 
 
 	ADC_InitTypeDef adcConfig;
@@ -34,18 +63,23 @@ void targetInit() {
 	ADC_Cmd(ADC1, ENABLE);
 
 	for(uint8_t target = 0; target < TOTAL_TARGETS; target++) {
-		GPIO_Init(targets[target].port, &(GPIO_InitTypeDef){(1 << targets[target].pin), GPIO_Mode_AN, GPIO_OType_OD, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+		GPIO_Init(targets[target].sensePort, &(GPIO_InitTypeDef){(1 << targets[target].sensePin), GPIO_Mode_AN, GPIO_OType_OD, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+		GPIO_Init(targets[target].powerPort, &(GPIO_InitTypeDef){(1 << targets[target].powerPin), GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+
+		// Enable target
+		GPIO_WriteBit(targets[target].powerPort, (1 << targets[target].powerPin), 0);
 	}
 
-	targetTimer = tickMs + TARGET_REFRESH_RATE;
+	targetTimer = 0;
 
+	targetsRunning = 0;
 }
 
-uint16_t targetGet(uint8_t target) {
+uint16_t targetRead(uint8_t target) {
 	uint16_t rval = 0;
 
 	if(target < TOTAL_TARGETS) {
-		ADC_RegularChannelConfig(targets[target].adc, targets[target].adcChannel, 1, ADC_SampleTime_56Cycles);
+		ADC_RegularChannelConfig(targets[target].adc, targets[target].adcChannel, 1, ADC_SampleTime_144Cycles);
 		ADC_SoftwareStartConv(targets[target].adc);
 		while(ADC_GetFlagStatus(targets[target].adc, ADC_FLAG_EOC) == RESET){
 			// do nothing
@@ -58,13 +92,40 @@ uint16_t targetGet(uint8_t target) {
 
 void targetCalibrate(uint8_t target, uint8_t state) {
 	if(target < TOTAL_TARGETS) {
+		uint32_t samples = 0;
 
+		printf("Calibrating target %d.\nTaking %d samples\n", target, TARGET_CAL_SAMPLES);
+		for(uint16_t sample = 0; sample < TARGET_CAL_SAMPLES; sample++) {
+			uint16_t value = targetRead(target);
+			samples += value;
+			printf("read - %d\n", value);
+			delay(168000 * 4);
+		}
+
+		// Get average
+		samples /= TARGET_CAL_SAMPLES;
+
+		printf("Average value: %ld\n", samples);
+
+		if(state) {
+			targets[samples].highThreshold = samples;
+		} else {
+			targets[samples].lowThreshold = samples;
+		}
+
+		targets[samples].hitThreshold = (targets[samples].highThreshold - targets[samples].lowThreshold)/2;
+		printf("New hitThreshold = (%d-%d)/2 %d\n", targets[samples].highThreshold, targets[samples].lowThreshold, targets[samples].hitThreshold);
 	}
 }
 
 void targetSet(uint8_t target, uint8_t enable) {
 	if(target < TOTAL_TARGETS) {
-		
+		// Enable target
+		GPIO_WriteBit(targets[target].powerPort, (1 << targets[target].powerPin), (~enable & 1));
+
+		if(enable) {
+			targets[target].timeHit = 0;
+		}
 	}
 }
 
@@ -72,17 +133,21 @@ void targetProcess() {
 	//
 	// WARNING - Not overflow safe!
 	//
-	if(targetTimer < tickMs) {
+	if(targetsRunning && (targetTimer < tickMs)) {
 		targetTimer = tickMs + TARGET_REFRESH_RATE;
 		for(uint8_t target = 0; target < TOTAL_TARGETS; target++) {
-			uint16_t currentValue = targetGet(target);
-			printf("Target %d: %d\n", target, currentValue);
+			uint16_t currentValue = targetRead(target);
 			if(currentValue > targets[target].hitThreshold) {
 				targets[target].timeHit += TARGET_REFRESH_RATE;
 			} else {
-				if(target > (TARGET_REFRESH_RATE - 1)) {
+				if(targets[target].timeHit > (TARGET_REFRESH_RATE - 1)) {
 					targets[target].timeHit -= TARGET_REFRESH_RATE;
 				}
+			}
+
+			if(targets[target].timeHit >= TARGET_HIT_THRESHOLD) {
+				printf("Target %d hit successfully!\n", target);
+				targetSet(target, 0); // Turn off the target
 			}
 		}
 	}
