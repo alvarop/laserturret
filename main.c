@@ -10,6 +10,7 @@
 #include "usbd_cdc_vcp.h"
 
 #include "console.h"
+#include "target.h"
 
 #define BLINK_DELAY_MS	(500)
 
@@ -32,6 +33,7 @@ int main(void) {
 	for(;;) {
 
 		consoleProcess();
+		targetProcess();
 
 		if(tickMs > nextBlink) {
 			nextBlink = tickMs + BLINK_DELAY_MS;
@@ -63,6 +65,8 @@ void init() {
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
 
 	GPIO_Init(GPIOD, &(GPIO_InitTypeDef){GPIO_Pin_12, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
+
+	targetInit();
 
 	USBD_Init(&USB_OTG_dev,
 				USB_OTG_FS_CORE_ID,
