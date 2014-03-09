@@ -18,7 +18,9 @@ typedef struct {
 } target_t;
 
 static target_t targets[TOTAL_TARGETS] = {
-	{GPIOA,	1,	ADC1,	GPIOC,	2,	1,	0, 0, 2048, 0, 4096}
+	{GPIOA,	1,	ADC1,	GPIOC,	4,	1,	0, 0, 2048, 0, 4096},
+	{GPIOA,	2,	ADC1,	GPIOC,	5,	2,	0, 0, 2048, 0, 4096},
+	{GPIOA,	3,	ADC1,	GPIOC,	6,	3,	0, 0, 2048, 0, 4096},
 };
 
 extern volatile uint32_t tickMs;
