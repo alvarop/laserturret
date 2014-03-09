@@ -101,7 +101,7 @@ void targetCalibrate(uint8_t target, uint8_t state) {
 		for(uint16_t sample = 0; sample < TARGET_CAL_SAMPLES; sample++) {
 			uint16_t value = targetRead(target);
 			samples += value;
-			printf("rd - %d\n", value);
+			//printf("rd - %d\n", value);
 		}
 
 		// Get average
@@ -119,6 +119,23 @@ void targetCalibrate(uint8_t target, uint8_t state) {
 		printf("New hitThreshold = %d\n", targets[target].hitThreshold);
 	}
 }
+
+uint16_t targetGetHitThreshold(uint8_t target) {
+	uint16_t hitThreshold = 0;
+
+	if(target < TOTAL_TARGETS) {
+		hitThreshold = targets[target].hitThreshold;
+	}
+
+	return hitThreshold;
+}
+
+void targetSetHitThreshold(uint8_t target, uint16_t newThreshold) {
+	if(target < TOTAL_TARGETS) {
+		targets[target].hitThreshold = newThreshold;
+	}
+}
+
 
 void targetSet(uint8_t target, uint8_t enable) {
 	if(target < TOTAL_TARGETS) {

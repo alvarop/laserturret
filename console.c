@@ -21,13 +21,15 @@ static void helpFn(uint8_t argc, char *argv[]);
 static void set(uint8_t argc, char *argv[]);
 static void read(uint8_t argc, char *argv[]);
 static void calibrate(uint8_t argc, char *argv[]);
+static void hitThreshold(uint8_t argc, char *argv[]);
 static void start(uint8_t argc, char *argv[]);
 static void stop(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
 	{"set", set, "Usage: set <target> <0,1>"},
 	{"read", read, "Usage: read <target>"},
-	{"calibrate", calibrate, "Usage: calibrate <target> <hit|miss>"},
+	{"cal", calibrate, "Usage: cal <target> <0(miss),1(hit)>"},
+	{"ht", hitThreshold, "Usage: ht <target> [new threshold]"},
 	{"start", start, "Usage: start"},
 	{"stop", stop, "Usage: stop"},
 	// Add new commands here!
@@ -86,6 +88,21 @@ static void calibrate(uint8_t argc, char *argv[]) {
 		uint8_t target = strtoul(argv[1], NULL, 10);
 		uint8_t state = strtoul(argv[2], NULL, 10);
 		targetCalibrate(target, state);
+	}
+}
+
+//
+// Set/get hit threshold
+//
+static void hitThreshold(uint8_t argc, char *argv[]) {
+	if(argc == 2) {
+		uint8_t target = strtoul(argv[1], NULL, 10);
+		printf("Target%d hitThreshold: %d\n", target, targetGetHitThreshold(target));
+	} else if(argc == 3) {
+		uint8_t target = strtoul(argv[1], NULL, 10);
+		uint16_t newThreshold = strtoul(argv[2], NULL, 10);
+
+		targetSetHitThreshold(target, newThreshold);
 	}
 }
 
