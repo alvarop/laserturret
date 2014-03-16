@@ -12,11 +12,11 @@ typedef struct {
 	uint8_t	directionPin;
 	uint8_t direction;
 	uint8_t ccr;
-	uint16_t speed;
-	uint16_t stepsRemaining;
-	uint16_t stepSize;
-	uint16_t state;
-	int32_t position;
+	volatile uint16_t speed;
+	volatile uint16_t stepsRemaining;
+	volatile uint16_t stepSize;
+	volatile uint16_t state;
+	volatile int32_t position;
 } stepperMotor_t;
 
 static TIM_TypeDef *stepTimer = TIM3;
@@ -78,13 +78,19 @@ void stepperMove(uint8_t stepperId, uint16_t steps) {
 	if(stepperId < TOTAL_STEPPERS) {
 		stepperMotor_t *stepper = &steppers[stepperId];
 		volatile uint32_t *ccr = &stepTimer->CCR1 + (stepper->ccr - 1);
+		
+		__disable_irq();
 		stepper->stepsRemaining = steps;
+		
 		// TODO - check bounds here
 
-		// Start moving
-		*ccr = stepTimer->CNT;
+		// Only schedule if stepper isn't already active
+		if((stepTimer->DIER & (1 << stepper->ccr)) == 0) {
+			*ccr = stepTimer->CNT;
+		}
 
 		stepTimer->DIER |= (1 << stepper->ccr);
+		__enable_irq();
 	}
 }
 
