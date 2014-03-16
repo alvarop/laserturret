@@ -28,10 +28,11 @@ static void stepperCmd(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
 	{"stepper", stepperCmd, "Usage: \n"
+							"\tstepper <stepperId> <on|off>\n"
 							"\tstepper <stepperId> pos\n"
 							"\tstepper <stepperId> pos <new position> <speed>\n"
-							"\tstepper <stepperId> mov <direction> <speed> <count>\n"
-							"\tstepper <stepperId> bounds <lower bound> <upper bound>\n"},
+							"\tstepper <stepperId> bounds <lower bound> <upper bound>\n"
+							"\tstepper <stepperId> mov <direction> <speed> <count>\n"},
 	{"servo", servoCmd, "Usage: servo <servoId> <position (1000-2000)>"},
 	{"laser", laserCmd, "Usage: laser <0, 1>"},
 	// Add new commands here!
@@ -104,6 +105,10 @@ static void stepperCmd(uint8_t argc, char *argv[]) {
 				stepperGetBounds(stepper, &lBound, &uBound);
 				
 				printf("Stepper %d bounds (%d, %d)\n", stepper, lBound, uBound);
+			} else if(strcmp("on", argv[2]) == 0) {
+				stepperEnable(stepper);
+			} else if(strcmp("off", argv[2]) == 0) {
+				stepperDisable(stepper);
 			}
 			break;
 		}

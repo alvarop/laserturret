@@ -8,8 +8,10 @@ extern volatile uint32_t tickMs;
 typedef struct {
 	GPIO_TypeDef* stepPort;
 	GPIO_TypeDef* directionPort;
+	GPIO_TypeDef* enablePort;
 	uint8_t	stepPin;
 	uint8_t	directionPin;
+	uint8_t	enablePin;
 	uint8_t direction;
 	uint8_t ccr;
 	volatile uint16_t speed;
@@ -24,9 +26,9 @@ typedef struct {
 static TIM_TypeDef *stepTimer = TIM3;
 
 static stepperMotor_t steppers[TOTAL_STEPPERS + 1] = {
-	{GPIOB,	GPIOB,	0,	11,	0,	3,	10,	0,	750,	0,	0,	INT16_MIN,	INT16_MAX},
-	{GPIOB,	GPIOB,	1,	12,	0,	4,	10,	0,	750,	0,	0,	INT16_MIN,	INT16_MAX},
-	{NULL,	NULL,	0,	0,	0,	0,	0,	0,	750,	0,	0,	INT16_MIN,	INT16_MAX}
+	{GPIOB,	GPIOB,	GPIOB,	0,	11,	13,	0,	3,	10,	0,	750,	0,	0,	INT16_MIN,	INT16_MAX},
+	{GPIOB,	GPIOB,	GPIOB,	1,	12,	14,	0,	4,	10,	0,	750,	0,	0,	INT16_MIN,	INT16_MAX},
+	{NULL,	NULL,	GPIOB,	0,	0,	0,	0,	0,	0,	0,	750,	0,	0,	INT16_MIN,	INT16_MAX}
 };
 
 void stepperInit() {
@@ -51,7 +53,11 @@ void stepperInit() {
 	// Setup pins
 	for(stepperMotor_t *stepper = steppers; stepper->stepPort != NULL; stepper++) {
 		GPIO_Init(stepper->stepPort, &(GPIO_InitTypeDef){(1 << stepper->stepPin), GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
-		GPIO_Init(stepper->directionPort, &(GPIO_InitTypeDef){(1 << stepper->directionPin), GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+		GPIO_Init(stepper->directionPort, &(GPIO_InitTypeDef){(1 << stepper->directionPin), GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
+		GPIO_Init(stepper->enablePort, &(GPIO_InitTypeDef){(1 << stepper->enablePin), GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
+
+		// Start disabled
+		GPIO_SetBits(stepper->enablePort, (1 << stepper->enablePin));
 	}
 
 	NVIC_EnableIRQ(TIM3_IRQn);
@@ -174,6 +180,21 @@ void stepperSetPosition(uint8_t stepperId, int16_t position, uint16_t speed) {
 	}
 }
 
+void stepperEnable(uint8_t stepperId){
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+		GPIO_ResetBits(stepper->enablePort, (1 << stepper->enablePin));
+		printf("Stepper %d ON\n", stepperId);
+	}
+}
+
+void stepperDisable(uint8_t stepperId){
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+		GPIO_SetBits(stepper->enablePort, (1 << stepper->enablePin));
+		printf("Stepper %d OFF\n", stepperId);
+	}
+}
 
 void TIM3_IRQHandler(void) {
 	uint32_t sr = stepTimer->SR;
