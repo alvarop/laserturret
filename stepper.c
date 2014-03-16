@@ -17,14 +17,16 @@ typedef struct {
 	volatile uint16_t stepSize;
 	volatile uint16_t state;
 	volatile int32_t position;
+	int16_t lBound;
+	int16_t uBound;
 } stepperMotor_t;
 
 static TIM_TypeDef *stepTimer = TIM3;
 
 static stepperMotor_t steppers[TOTAL_STEPPERS + 1] = {
-	{GPIOB,		GPIOB,		0,		11,		0,		3,		10,		0,		750,	0,		0},
-	{GPIOB,		GPIOB,		1,		12,		0,		4,		10,		0,		750,	0,		0},
-	{NULL,		NULL,		0,		0,		0,		0,		0,		0,		750,	0,		0}
+	{GPIOB,	GPIOB,	0,	11,	0,	3,	10,	0,	750,	0,	0,	INT16_MIN,	INT16_MAX},
+	{GPIOB,	GPIOB,	1,	12,	0,	4,	10,	0,	750,	0,	0,	INT16_MIN,	INT16_MAX},
+	{NULL,	NULL,	0,	0,	0,	0,	0,	0,	750,	0,	0,	INT16_MIN,	INT16_MAX}
 };
 
 void stepperInit() {
@@ -80,9 +82,18 @@ void stepperMove(uint8_t stepperId, uint16_t steps) {
 		volatile uint32_t *ccr = &stepTimer->CCR1 + (stepper->ccr - 1);
 		
 		__disable_irq();
+
+		if(stepper->direction) {
+			if((stepper->position + steps) > stepper->uBound) {
+				steps = stepper->uBound - stepper->position;
+			}
+		} else {
+			if((stepper->position - steps) < stepper->lBound) {
+				steps = stepper->position - stepper->lBound;
+			}
+		}
+
 		stepper->stepsRemaining = steps;
-		
-		// TODO - check bounds here
 
 		// Only schedule if stepper isn't already active
 		if((stepTimer->DIER & (1 << stepper->ccr)) == 0) {
@@ -93,6 +104,76 @@ void stepperMove(uint8_t stepperId, uint16_t steps) {
 		__enable_irq();
 	}
 }
+
+void stepperSetStepSize(uint8_t stepperId, uint16_t stepSize) {
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+		stepper->stepSize = stepSize;
+	}
+}
+
+void stepperCenter(uint8_t stepperId) {
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+		stepper->position = 0;
+	}
+}
+
+void stepperSetBounds(uint8_t stepperId, int16_t lBound, int16_t uBound) {
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+		stepper->lBound = lBound;
+		stepper->uBound = uBound;
+	}
+}
+
+void stepperGetBounds(uint8_t stepperId, int16_t *lBound, int16_t *uBound) {
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+		*lBound = stepper->lBound;
+		*uBound = stepper->uBound;
+	}
+}
+
+
+int16_t stepperGetPosition(uint8_t stepperId) {
+	int16_t position = 0;
+
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+
+		position = stepper->position;
+	}
+
+	return position;
+}
+
+void stepperSetPosition(uint8_t stepperId, int16_t position, uint16_t speed) {
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+		uint16_t steps = 0;
+
+		__disable_irq();
+		stepper->speed = speed - stepper->stepSize;
+
+		if(position > stepper->position) {
+			stepperSetDirection(stepperId, 1);
+
+			steps = position - stepper->position;
+			
+		} else if(position < stepper->position) {
+			stepperSetDirection(stepperId, 0);
+
+			steps = stepper->position - position;
+		}
+		__enable_irq();
+
+		if(steps) {
+			stepperMove(stepperId, steps);
+		}
+	}
+}
+
 
 void TIM3_IRQHandler(void) {
 	uint32_t sr = stepTimer->SR;
