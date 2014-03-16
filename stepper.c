@@ -34,12 +34,10 @@ void stepperInit() {
 
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
 
-	//
-	// Configure timer for 10ms period and 1.5ms pulses (centered)
-	//
+
 	TIM_TimeBaseStructInit(&timerConfig);
 
-	timerConfig.TIM_Prescaler = 168;
+	timerConfig.TIM_Prescaler = 84; // APB1 runs at 84MHz
 	timerConfig.TIM_ClockDivision = 0;
 	timerConfig.TIM_CounterMode = TIM_CounterMode_Up;
 
