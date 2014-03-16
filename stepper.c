@@ -77,12 +77,13 @@ void stepperSetSpeed(uint8_t stepperId, uint16_t speed) {
 void stepperMove(uint8_t stepperId, uint16_t steps) {
 	if(stepperId < TOTAL_STEPPERS) {
 		stepperMotor_t *stepper = &steppers[stepperId];
-		volatile uint32_t *ccr = &stepTimer->CCR1 + (steppers->ccr - 1);
-
+		volatile uint32_t *ccr = &stepTimer->CCR1 + (stepper->ccr - 1);
 		stepper->stepsRemaining = steps;
+		// TODO - check bounds here
 
 		// Start moving
-		*ccr = stepTimer->CNT + 1;
+		*ccr = stepTimer->CNT;
+
 		stepTimer->DIER |= (1 << stepper->ccr);
 	}
 }
@@ -95,7 +96,7 @@ void TIM3_IRQHandler(void) {
 	for(stepperMotor_t *stepper = steppers; stepper->stepPort != NULL; stepper++) {
 		if(sr & (1 << stepper->ccr)) {
 			if(stepper->stepsRemaining) {
-				volatile uint32_t *ccr = &stepTimer->CCR1 + (steppers->ccr - 1);
+				volatile uint32_t *ccr = &stepTimer->CCR1 + (stepper->ccr - 1);
 				
 				if(stepper->state) {
 					stepper->state = 0;
