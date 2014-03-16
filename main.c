@@ -32,7 +32,6 @@ int main(void) {
 	for(;;) {
 
 		consoleProcess();
-		stepperProcess();
 
 		if(tickMs > nextBlink) {
 			nextBlink = tickMs + BLINK_DELAY_MS;

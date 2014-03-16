@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "stm32f4xx_conf.h"
 #include "stm32f4xx.h"
 #include "stepper.h"
@@ -10,100 +11,116 @@ typedef struct {
 	uint8_t	stepPin;
 	uint8_t	directionPin;
 	uint8_t direction;
+	uint8_t ccr;
 	uint16_t speed;
-	uint32_t stepsRemaining;
-	uint32_t nextStep;
+	uint16_t stepsRemaining;
+	uint16_t stepSize;
+	uint16_t state;
+	int32_t position;
 } stepperMotor_t;
 
-stepperMotor_t steppers[TOTAL_STEPPERS] = {
-	{GPIOB,		GPIOB,		0,		11,		0, 		10, 	0,		0},
-	{GPIOB,		GPIOB,		1,		12,		0, 		10, 	0,		0}
+static TIM_TypeDef *stepTimer = TIM3;
+
+static stepperMotor_t steppers[TOTAL_STEPPERS + 1] = {
+	{GPIOB,		GPIOB,		0,		11,		0,		3,		10,		0,		750,	0,		0},
+	{GPIOB,		GPIOB,		1,		12,		0,		4,		10,		0,		750,	0,		0},
+	{NULL,		NULL,		0,		0,		0,		0,		0,		0,		750,	0,		0}
 };
 
 void stepperInit() {
-// 	TIM_TimeBaseInitTypeDef timerConfig;
-// 	TIM_OCInitTypeDef ocConfig;
+ 	TIM_TimeBaseInitTypeDef timerConfig;
 
-// 	// GPIOE Periph clock enable
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
 
-// 	GPIO_PinAFConfig(GPIOB, GPIO_PinSource0, GPIO_AF_TIM3);
-// 	GPIO_PinAFConfig(GPIOB, GPIO_PinSource1, GPIO_AF_TIM3);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
 
-// 	// Use PE5 and PE6 for servo control
-// 	GPIO_Init(GPIOE, &(GPIO_InitTypeDef){GPIO_Pin_0, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
-// 	GPIO_Init(GPIOE, &(GPIO_InitTypeDef){GPIO_Pin_1, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+	//
+	// Configure timer for 10ms period and 1.5ms pulses (centered)
+	//
+	TIM_TimeBaseStructInit(&timerConfig);
 
-// 	// Power the timer
-// 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
+	timerConfig.TIM_Prescaler = 168;
+	timerConfig.TIM_ClockDivision = 0;
+	timerConfig.TIM_CounterMode = TIM_CounterMode_Up;
 
-// 	//
-// 	// Configure timer for 10ms period and 1.5ms pulses (centered)
-// 	//
-// 	TIM_TimeBaseStructInit(&timerConfig);
+	TIM_TimeBaseInit(stepTimer, &timerConfig);
 
-// 	timerConfig.TIM_Period = 10000;
-// 	timerConfig.TIM_Prescaler = 168;
-// 	timerConfig.TIM_ClockDivision = 0;
-// 	timerConfig.TIM_CounterMode = TIM_CounterMode_Up;
-
-// 	TIM_TimeBaseInit(TIM3, &timerConfig);
-
-// 	// Enable the timer!
-// 	TIM_Cmd(TIM3, ENABLE);
+	// Enable the timer!
+	TIM_Cmd(stepTimer, ENABLE);
 
 	// Setup pins
-	for(uint8_t stepper = 0; stepper < TOTAL_STEPPERS; stepper++) {
-		GPIO_Init(steppers[stepper].stepPort, &(GPIO_InitTypeDef){(1 << steppers[stepper].stepPin), GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
-		GPIO_Init(steppers[stepper].directionPort, &(GPIO_InitTypeDef){(1 << steppers[stepper].directionPin), GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+	for(stepperMotor_t *stepper = steppers; stepper->stepPort != NULL; stepper++) {
+		GPIO_Init(stepper->stepPort, &(GPIO_InitTypeDef){(1 << stepper->stepPin), GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+		GPIO_Init(stepper->directionPort, &(GPIO_InitTypeDef){(1 << stepper->directionPin), GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
 	}
-	// Step pins
-//	GPIO_Init(GPIOB, &(GPIO_InitTypeDef){GPIO_Pin_0, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
-//	GPIO_Init(GPIOB, &(GPIO_InitTypeDef){GPIO_Pin_1, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
 
-	// Direction pins
-//	GPIO_Init(GPIOB, &(GPIO_InitTypeDef){GPIO_Pin_11, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
-//	GPIO_Init(GPIOB, &(GPIO_InitTypeDef){GPIO_Pin_12, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+	NVIC_EnableIRQ(TIM3_IRQn);
 }
 
-void stepperSetDirection(uint8_t stepper, uint8_t direction) {
-	if(stepper < TOTAL_STEPPERS) {
-		steppers[stepper].direction = direction;
-		GPIO_WriteBit(steppers[stepper].directionPort, (1 << steppers[stepper].directionPin), direction);
+void stepperSetDirection(uint8_t stepperId, uint8_t direction) {
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+
+		stepper->direction = direction;
+		GPIO_WriteBit(stepper->directionPort, (1 << stepper->directionPin), direction);
 	}
 }
 
-void stepperSetSpeed(uint8_t stepper, uint16_t speed) {
-	if(stepper < TOTAL_STEPPERS) {
-		steppers[stepper].speed = speed;
+void stepperSetSpeed(uint8_t stepperId, uint16_t speed) {
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+		
+		if(stepper->stepSize < speed) {
+			stepper->speed = speed - stepper->stepSize;
+		}
 	}
 }
 
-void stepperMove(uint8_t stepper, uint16_t steps) {
-	if(stepper < TOTAL_STEPPERS) {
-		steppers[stepper].stepsRemaining = steps;
-		steppers[stepper].nextStep = tickMs + steppers[stepper].speed;
+void stepperMove(uint8_t stepperId, uint16_t steps) {
+	if(stepperId < TOTAL_STEPPERS) {
+		stepperMotor_t *stepper = &steppers[stepperId];
+		volatile uint32_t *ccr = &stepTimer->CCR1 + (steppers->ccr - 1);
+
+		stepper->stepsRemaining = steps;
+
+		// Start moving
+		*ccr = stepTimer->CNT + 1;
+		stepTimer->DIER |= (1 << stepper->ccr);
 	}
 }
 
-void delay(uint32_t delay) {
-	while(delay--) {
-		asm volatile(" nop");
-	}
-}
+void TIM3_IRQHandler(void) {
+	uint32_t sr = stepTimer->SR;
 
-void stepperProcess() {
-	for(uint8_t stepper = 0; stepper < TOTAL_STEPPERS; stepper++) {
-		//
-		// WARNING - Timer code does not check for uint32_t overflow!
-		//
-		if(steppers[stepper].stepsRemaining && (steppers[stepper].nextStep < tickMs)) {
-			steppers[stepper].nextStep = tickMs + steppers[stepper].speed;
-			steppers[stepper].stepsRemaining--;
-			
-			GPIO_SetBits(steppers[stepper].stepPort, (1 << steppers[stepper].stepPin));
-			delay(31500); // ~750 ms
-			GPIO_ResetBits(steppers[stepper].stepPort, (1 << steppers[stepper].stepPin));
+	stepTimer->SR = 0;
+
+	for(stepperMotor_t *stepper = steppers; stepper->stepPort != NULL; stepper++) {
+		if(sr & (1 << stepper->ccr)) {
+			if(stepper->stepsRemaining) {
+				volatile uint32_t *ccr = &stepTimer->CCR1 + (steppers->ccr - 1);
+				
+				if(stepper->state) {
+					stepper->state = 0;
+					*ccr += stepper->speed;
+					GPIO_ResetBits(stepper->stepPort, (1 << stepper->stepPin));
+				} else {
+					stepper->state = 1;
+					*ccr += stepper->stepSize;
+					GPIO_SetBits(stepper->stepPort, (1 << stepper->stepPin));
+
+					stepper->stepsRemaining--;
+
+					if(stepper->direction) {
+						stepper->position += 1;
+					} else {
+						stepper->position -= 1;
+					}
+				}
+			} else {
+				GPIO_ResetBits(stepper->stepPort, (1 << stepper->stepPin));
+				stepTimer->DIER &= ~(1 << stepper->ccr);
+				stepper->state = 0;
+			}
 		}
 	}
 }
