@@ -3,6 +3,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <stdlib.h>
 
 using namespace std;
 using namespace cv;
@@ -15,16 +16,17 @@ float yPos = 0.0f;
 #define WIDTH (640)
 #define HEIGHT (480)
 
+#define MICROSTEP_16
 #ifdef MICROSTEP_16
 // This is for /16 microstepping
-#define XMAX	(150)
-#define YMAX	(100)
-#define SPEED	(2500)
-#else
-// This is for /16 microstepping
 #define XMAX	(2400)
-#define YMAX	(1600)
+#define YMAX	(2000)
 #define SPEED (1000)
+#else
+// This is for NO microstepping
+#define XMAX	(150)
+#define YMAX	(125)
+#define SPEED	(2500)
 #endif
 
 void moveX(int32_t xDev) {
@@ -70,10 +72,17 @@ void moveY(int32_t yDev) {
 	cout << "stepper 1 pos " << yStepper << " " << SPEED << "\n" << endl;
 }
 
+uint32_t distanceFromCenter(uint32_t x, uint32_t y) {
+	// Ignore sqrt for now, since all we care is about relative distance
+	int32_t xDis = WIDTH/2 - x;
+	int32_t yDis = HEIGHT/2 - y;
+	return xDis * xDis + yDis * yDis;
+}
+
 int main(int argc, char ** argv) { 
 	
-	if(argc < 2) {
-		cout << "Need device name!" << endl;
+	if(argc < 3) {
+		cout << "Usage: <serial device (/dev/ttyACM0)> <camera id (0,1,2...)>" << endl;
 		return -1;
 	}
 
@@ -90,7 +99,7 @@ int main(int argc, char ** argv) {
 	
 	controlfile << "laser 0\n" << endl;
 
-	VideoCapture cap(1);
+	VideoCapture cap(strtoul(argv[2], NULL, 10));
 
 	if(!cap.isOpened()) {
 		cout << "Capture could not be opened successfully" << endl;
@@ -114,17 +123,18 @@ int main(int argc, char ** argv) {
 
 		vector<Vec3f> circles;
 		HoughCircles(cimg, circles, CV_HOUGH_GRADIENT, 1, 10,
-					 100, 30, 10, 40 // change the last two parameters
+					 100, 30, 5, 40 // change the last two parameters
 									// (min_radius & max_radius) to detect larger circles
 					 );
 		uint32_t mainCircle = 0;
-		uint32_t mainCircleRadius = 0;
+		uint32_t mainCircleDistance = 100000;
+		
 		for( size_t i = 0; i < circles.size(); i++ )
 		{
 			Vec3i c = circles[i];
-			if(c[2] > mainCircleRadius) {
+			if(distanceFromCenter(c[0], c[1]) < mainCircleDistance) {
 				mainCircle = i;
-				mainCircleRadius = c[2];
+				mainCircleDistance = distanceFromCenter(c[0], c[1]);
 			}
 		}
 
