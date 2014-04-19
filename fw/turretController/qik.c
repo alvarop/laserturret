@@ -3,6 +3,30 @@
 #include "stm32f4xx_conf.h"
 #include "stm32f4xx.h"
 
+
+#define CMD_FLAG		(0x80)
+
+#define CMD_GETFWVER	(0x81)
+#define CMD_GETERR		(0x82)
+
+#define CMD_GETPARAM	(0x83)
+#define CMD_SETPARAM	(0x83)
+
+#define CMD_M0COAST		(0x86)
+#define CMD_M1COAST		(0x87)
+
+#define CMD_M0FWD		(0x88)
+#define CMD_M0FWD2		(0x89)
+#define CMD_M0REV		(0x8A)
+#define CMD_M0REV2		(0x8B)
+
+#define CMD_M1FWD		(0x8C)
+#define CMD_M1FWD2		(0x8D)
+#define CMD_M1REV		(0x8E)
+#define CMD_M1REV2		(0x8F)
+
+#define CMD_DIFF		(CMD_M1FWD - CMD_M0FWD)
+
 void qikInit() {
 	USART_InitTypeDef USART_InitStruct;
 	// USART_ClockInitTypeDef USART_ClockInitStruct;
@@ -24,6 +48,46 @@ void qikInit() {
 	USART_Init(USART2, &USART_InitStruct);
 
 	USART_Cmd(USART2, ENABLE);
+
+	// In case autobaud is on
+	USART2->DR = 0xAA;
 }
 
+static inline void qikTxCmdWithParam(uint8_t cmd, uint8_t param) {
+	while(!(USART2->SR & USART_FLAG_TXE));
+	USART2->DR = cmd;
+	while(!(USART2->SR & USART_FLAG_TXE));
+	USART2->DR = param;
+}
+
+static inline void qikTxCmd(uint8_t cmd) {
+	while(!(USART2->SR & USART_FLAG_TXE));
+	USART2->DR = cmd;
+}
+
+void qikSetSpeed(uint8_t device, uint8_t speed, uint8_t direction) {
+	uint8_t cmd;
+
+	if(direction) {
+		cmd = CMD_M0FWD;
+	} else {
+		cmd = CMD_M0REV;
+	}
+
+	if(device) {
+		cmd += CMD_DIFF;
+	}
+
+	qikTxCmdWithParam(cmd, speed);
+}
+
+void qikSetCoast(uint8_t device) {
+	uint8_t cmd = CMD_M0COAST;
+
+	if(device) {
+		cmd = CMD_M1COAST;
+	}
+
+	qikTxCmd(cmd);
+}
 

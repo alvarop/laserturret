@@ -166,7 +166,35 @@ static void stepperCmd(uint8_t argc, char *argv[]) {
 }
 
 static void qikCmd(uint8_t argc, char *argv[]) {
-	// TODO
+	switch(argc) {
+		case 3: {
+			uint8_t mot = (uint8_t)strtoul(argv[1], NULL, 10);
+			if(strcmp("coast", argv[2]) == 0) {
+				qikSetCoast(mot);
+				printf("M%d coast\n", mot);
+			}
+
+			break;
+		}
+
+		case 4: {
+			uint8_t mot = (uint8_t)strtoul(argv[1], NULL, 10);
+			int32_t speed = strtol(argv[3], NULL, 10);
+			uint8_t dir = 0;
+			
+			if(speed > 0) {
+				dir = 1;
+			}
+
+			if(strcmp("mov", argv[2]) == 0) {
+				printf("Move M%d %s at speed %d\n", mot, (dir)? "Fwd" : "Rev", abs(speed));
+				qikSetSpeed(mot, abs(speed), dir);
+			}
+
+			break;
+		}
+	}
+
 }
 
 //
