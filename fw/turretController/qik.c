@@ -27,6 +27,8 @@
 
 #define CMD_DIFF		(CMD_M1FWD - CMD_M0FWD)
 
+static uint8_t m0LimitOK;
+
 void qikInit() {
 	USART_InitTypeDef USART_InitStruct;
 	// USART_ClockInitTypeDef USART_ClockInitStruct;
@@ -34,6 +36,7 @@ void qikInit() {
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
 
+	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_0, GPIO_Mode_IN, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_UP});
 	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
 	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_3, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
 
@@ -76,6 +79,8 @@ void qikSetSpeed(uint8_t device, uint8_t speed, uint8_t direction) {
 
 	if(device) {
 		cmd += CMD_DIFF;
+	} else {
+		m0LimitOK = 1;
 	}
 
 	qikTxCmdWithParam(cmd, speed);
@@ -89,5 +94,21 @@ void qikSetCoast(uint8_t device) {
 	}
 
 	qikTxCmd(cmd);
+}
+
+
+// TODO - use interrupts
+void qikProcess() {
+	
+
+	if(GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0) == 0) {
+		if(m0LimitOK) {
+			qikSetSpeed(0, 0, 0);
+			puts("Limit!");
+			m0LimitOK = 0;
+		}
+	} else {
+		m0LimitOK = 1;
+	}
 }
 

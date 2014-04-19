@@ -215,6 +215,9 @@ void consoleInit() {
 //
 void consoleProcess() {
 	uint32_t inBytes = fifoSize(&usbRxFifo);
+
+	qikProcess();
+
 	if(inBytes > 0) {
 		uint32_t newLine = 0;
 		for(int32_t index = 0; index < inBytes; index++){
