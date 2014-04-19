@@ -5,6 +5,7 @@
 #include "fifo.h"
 #include "servo.h"
 #include "stepper.h"
+#include "qik.h"
 
 #include "stm32f4xx_conf.h"
 #include "stm32f4xx.h"
@@ -25,6 +26,7 @@ static void helpFn(uint8_t argc, char *argv[]);
 static void servoCmd(uint8_t argc, char *argv[]);
 static void laserCmd(uint8_t argc, char *argv[]);
 static void stepperCmd(uint8_t argc, char *argv[]);
+static void qikCmd(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
 	{"stepper", stepperCmd, "Usage: \n"
@@ -35,6 +37,7 @@ static command_t commands[] = {
 							"\tstepper <stepperId> mov <direction> <speed> <count>\n"},
 	{"servo", servoCmd, "Usage: servo <servoId> <position (1000-2000)>"},
 	{"laser", laserCmd, "Usage: laser <0, 1>"},
+	{"qik"	, qikCmd,	"Usage: qik"},
 	// Add new commands here!
 	{"help", helpFn, "Print this!"},
 	{NULL, NULL, NULL}
@@ -162,12 +165,17 @@ static void stepperCmd(uint8_t argc, char *argv[]) {
 	}
 }
 
+static void qikCmd(uint8_t argc, char *argv[]) {
+	// TODO
+}
+
 //
 // Put any initialization code here
 //
 void consoleInit() {
 	servoInit();
 	stepperInit();
+	qikInit();
 
 	// Init Laser
 	GPIO_Init(GPIOE, &(GPIO_InitTypeDef){GPIO_Pin_4, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
