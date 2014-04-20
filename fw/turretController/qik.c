@@ -27,7 +27,17 @@
 
 #define CMD_DIFF		(CMD_M1FWD - CMD_M0FWD)
 
-static uint8_t m0LimitOK;
+typedef struct {
+	GPIO_TypeDef *port;
+	uint8_t lPin;
+	uint8_t rPin;
+	uint8_t dir;
+	uint8_t lStop;
+	uint8_t rStop;
+} qikMotor_t;
+
+static qikMotor_t m0 = {GPIOA, 0, 1, 0, 0, 0};
+static qikMotor_t m1 = {GPIOA, 6, 7, 0, 0, 0};
 
 void qikInit() {
 	USART_InitTypeDef USART_InitStruct;
@@ -36,7 +46,12 @@ void qikInit() {
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
 
-	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_0, GPIO_Mode_IN, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_UP});
+	GPIO_Init(m0.port, &(GPIO_InitTypeDef){(1 << m0.lPin), GPIO_Mode_IN, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_UP});
+	GPIO_Init(m0.port, &(GPIO_InitTypeDef){(1 << m0.rPin), GPIO_Mode_IN, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_UP});
+
+	GPIO_Init(m1.port, &(GPIO_InitTypeDef){(1 << m1.lPin), GPIO_Mode_IN, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_UP});
+	GPIO_Init(m1.port, &(GPIO_InitTypeDef){(1 << m1.rPin), GPIO_Mode_IN, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_UP});
+
 	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
 	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_3, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
 
@@ -73,14 +88,19 @@ void qikSetSpeed(uint8_t device, uint8_t speed, uint8_t direction) {
 
 	if(direction) {
 		cmd = CMD_M0FWD;
+		if(device == 0) {m0.dir = 1;}
+		if(device == 1) {m1.dir = 1;}
 	} else {
 		cmd = CMD_M0REV;
+		if(device == 0) {m0.dir = 0;}
+		if(device == 1) {m1.dir = 0;}
 	}
 
 	if(device) {
 		cmd += CMD_DIFF;
 	} else {
-		m0LimitOK = 1;
+		m0.lStop = 0;
+		m0.rStop = 0;
 	}
 
 	qikTxCmdWithParam(cmd, speed);
@@ -100,15 +120,56 @@ void qikSetCoast(uint8_t device) {
 // TODO - use interrupts
 void qikProcess() {
 	
-
-	if(GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0) == 0) {
-		if(m0LimitOK) {
-			qikSetSpeed(0, 0, 0);
-			puts("Limit!");
-			m0LimitOK = 0;
+	if(GPIO_ReadInputDataBit(m0.port, (1 << m0.lPin)) == 0) {
+		if(!m0.lStop) {
+			if(m0.dir == 0) {
+				qikSetSpeed(0, 0, 0);
+			}
+	
+			puts("LSTOP!");
+			m0.lStop = 1;
 		}
 	} else {
-		m0LimitOK = 1;
+		m0.lStop = 0;
+	}
+
+	if(GPIO_ReadInputDataBit(m0.port, (1 << m0.rPin)) == 0) {
+		if(!m0.rStop) {
+			if(m0.dir == 1) {
+				qikSetSpeed(0, 0, 0);
+			}
+	
+			puts("RSTOP!");
+			m0.rStop = 1;
+		}
+	} else {
+		m0.rStop = 0;
+	}
+
+	if(GPIO_ReadInputDataBit(m1.port, (1 << m1.lPin)) == 0) {
+		if(!m1.lStop) {
+			if(m1.dir == 0) {
+				qikSetSpeed(1, 0, 0);
+			}
+	
+			puts("USTOP!");
+			m1.lStop = 1;
+		}
+	} else {
+		m1.lStop = 0;
+	}
+
+	if(GPIO_ReadInputDataBit(m1.port, (1 << m1.rPin)) == 0) {
+		if(!m1.rStop) {
+			if(m1.dir == 1) {
+				qikSetSpeed(1, 0, 0);
+			}
+	
+			puts("DSTOP!");
+			m1.rStop = 1;
+		}
+	} else {
+		m1.rStop = 0;
 	}
 }
 
