@@ -32,44 +32,58 @@ float yPos = 0.0f;
 void moveX(int32_t xDev) {
 	uint32_t xServo;
 	int32_t xStepper;
+	int32_t xMov = 0;
 	
-	xPos += (float)xDev/WIDTH/5;
+	xPos = (float)xDev/WIDTH;
 	
 	if(xPos < -0.5) {
 		xPos = -0.5;
+		xMov = -20;
 	} else if (xPos > 0.5) {
 		xPos = 0.5;
+		xMov = 20;
 	}
 	
 	xStepper = -xPos * 2 * XMAX;
 	
 	xServo = 1500 + xPos * 1000;
 	
+	xMov -= xPos * 200;
+	
 	//controlfile << "servo 0 " << xServo << "\n" << endl;
-	controlfile << "stepper 0 pos " << xStepper << " " << SPEED << "\n" << endl;
-	cout << "stepper 0 pos " << xStepper << " " << SPEED << "\n" << endl;
+	//controlfile << "stepper 0 pos " << xStepper << " " << SPEED << "\n" << endl;
+	controlfile << "qik 0 mov " << xMov << "\n" << endl;
+	cout << "qik 0 mov " << xMov << "\n" << endl;
 }
 
 void moveY(int32_t yDev) {
 	uint32_t yServo;
 	int32_t yStepper;
+	int32_t yMov = 0;
 	
-	yPos -= (float)yDev/HEIGHT/8;
+	yPos = (float)yDev/HEIGHT;
 
 	if(yPos < -0.5) {
 		yPos = -0.5;
+		yMov = 20;
 	} else if (yPos > 0.5) {
 		yPos = 0.5;
+		yMov = -20;
 	}
 	
 	yStepper = -yPos * 2 * YMAX;
 	
 	yServo = 1500 + yPos * 1000;
+	
+	yMov -= yPos * 200;
 
 	//controlfile << "servo 1 " << yServo << "\n" << endl;
 
-	controlfile << "stepper 1 pos " << yStepper << " " << SPEED << "\n" << endl;
-	cout << "stepper 1 pos " << yStepper << " " << SPEED << "\n" << endl;
+	//controlfile << "stepper 1 pos " << yStepper << " " << SPEED << "\n" << endl;
+	//cout << "stepper 1 pos " << yStepper << " " << SPEED << "\n" << endl;
+
+	controlfile << "qik 1 mov " << yMov << "\n" << endl;
+	cout << "qik 1 mov " << yMov << " " << yPos << "\n" << endl;
 }
 
 uint32_t distanceFromCenter(uint32_t x, uint32_t y) {
@@ -96,6 +110,13 @@ int main(int argc, char ** argv) {
 	
 	controlfile << "stepper 0 on\n" << endl;
 	controlfile << "stepper 1 on\n" << endl;
+	
+	
+	controlfile << "qik 0 mov 0\n" << endl;
+	controlfile << "qik 1 mov 0\n" << endl;
+	
+	//controlfile << "qik 0 coast\n" << endl;
+	//controlfile << "qik 1 coast\n" << endl;
 	
 	controlfile << "laser 0\n" << endl;
 
@@ -151,17 +172,27 @@ int main(int argc, char ** argv) {
 				// Only move if not centered
 				if((c[0] < (WIDTH/2 - c[2])) || (c[0] > (WIDTH/2 + c[2]))) {
 					moveX(WIDTH/2 - c[0]);
+				} else {
+					// Stop moving (only for gearmotors!)
+					moveX(0);
 				}
 				
 				// Only move if not centered
 				if((c[1] < (HEIGHT/2 - c[2])) || (c[1] > (HEIGHT/2 + c[2]))) {
 					moveY((HEIGHT/2 - c[1]));
+				} else {
+					moveY(0);
 				}
 			}
 			
 			circle( cimg, Point(c[0], c[1]), c[2], Scalar(0,0,255), 3, CV_AA);
 			circle( cimg, Point(c[0], c[1]), 2, Scalar(0,255,0), 3, CV_AA);
 		} else {
+		
+			controlfile << "qik 0 mov 0\n" << endl;
+			controlfile << "qik 1 mov 0\n" << endl;
+			//controlfile << "qik 0 coast\n" << endl;
+			//controlfile << "qik 1 coast\n" << endl;
 			controlfile << "laser 0\n" << endl;
 		}
 		
@@ -176,6 +207,12 @@ int main(int argc, char ** argv) {
 	controlfile << "servo 0 1500\n" << endl;
 	controlfile << "servo 1 1500\n" << endl;
 	controlfile << "laser 0\n" << endl;
+	
+	controlfile << "qik 0 mov 0\n" << endl;
+	controlfile << "qik 1 mov 0\n" << endl;
+	
+	controlfile << "qik 0 coast\n" << endl;
+	controlfile << "qik 1 coast\n" << endl;
 
 	controlfile.close();
 
