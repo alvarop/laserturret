@@ -18,14 +18,26 @@ typedef struct {
 } target_t;
 
 static target_t targets[TOTAL_TARGETS] = {
-	{GPIOA,	1,	ADC1,	GPIOC,	4,	1,	0, 0, 2048, 0, 4096},
-	{GPIOA,	2,	ADC1,	GPIOC,	5,	2,	0, 0, 2048, 0, 4096},
-	{GPIOA,	3,	ADC1,	GPIOC,	6,	3,	0, 0, 2048, 0, 4096},
+	{GPIOA,	0,	ADC1,	GPIOA,	15,	0,	0, 0, 2048, 0, 4096},
+	{GPIOA,	1,	ADC1,	GPIOB,	4,	1,	0, 0, 2048, 0, 4096},
+	{GPIOA,	2,	ADC1,	GPIOB,	5,	2,	0, 0, 2048, 0, 4096},
+	{GPIOA,	3,	ADC1,	GPIOB,	7,	3,	0, 0, 2048, 0, 4096},
+
+	{GPIOB,	0,	ADC1,	GPIOB,	8,	8,	0, 0, 2048, 0, 4096},
+	{GPIOB,	1,	ADC1,	GPIOB,	11,	9,	0, 0, 2048, 0, 4096},
+
+	{GPIOC,	1,	ADC1,	GPIOB,	12,	11,	0, 0, 2048, 0, 4096},
+	{GPIOC,	2,	ADC1,	GPIOB,	13,	12,	0, 0, 2048, 0, 4096},
+	{GPIOC,	4,	ADC1,	GPIOB,	14,	13,	0, 0, 2048, 0, 4096},
+	{GPIOC,	5,	ADC1,	GPIOC,	6,	15,	0, 0, 2048, 0, 4096},
+	
 };
 
 extern volatile uint32_t tickMs;
 static uint32_t targetTimer;
 static uint8_t targetsRunning;
+
+#define PORT_LETTER(x) (((((uint32_t)x) >> 10) & 0xF) + 'A')
 
 void delay(uint32_t delay) {
 	while(delay--) {
@@ -51,6 +63,7 @@ void targetStop() {
 
 void targetInit() {
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
 
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE); 
@@ -141,6 +154,8 @@ void targetSet(uint8_t target, uint8_t enable) {
 	if(target < TOTAL_TARGETS) {
 		// Enable target
 		GPIO_WriteBit(targets[target].powerPort, (1 << targets[target].powerPin), (~enable & 1));
+
+		printf("set GPIO%c.%d = %d\n", PORT_LETTER(targets[target].powerPort), targets[target].powerPin, (~enable & 1));
 
 		targets[target].enabled = enable;
 

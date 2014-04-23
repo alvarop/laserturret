@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define TOTAL_TARGETS			(3)
+#define TOTAL_TARGETS			(10)
 #define TARGET_REFRESH_RATE		(50)
 #define TARGET_HIT_THRESHOLD	(500)
 #define TARGET_CAL_SAMPLES		(100)
