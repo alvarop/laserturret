@@ -126,7 +126,7 @@ void qikProcess() {
 				qikSetSpeed(0, 0, 0);
 			}
 	
-			puts("LSTOP!");
+			//puts("LSTOP!");
 			m0.lStop = 1;
 		}
 	} else {
@@ -139,7 +139,7 @@ void qikProcess() {
 				qikSetSpeed(0, 0, 0);
 			}
 	
-			puts("RSTOP!");
+			//puts("RSTOP!");
 			m0.rStop = 1;
 		}
 	} else {
@@ -152,7 +152,7 @@ void qikProcess() {
 				qikSetSpeed(1, 0, 0);
 			}
 	
-			puts("USTOP!");
+			//puts("USTOP!");
 			m1.lStop = 1;
 		}
 	} else {
@@ -165,7 +165,7 @@ void qikProcess() {
 				qikSetSpeed(1, 0, 0);
 			}
 	
-			puts("DSTOP!");
+			//puts("DSTOP!");
 			m1.rStop = 1;
 		}
 	} else {

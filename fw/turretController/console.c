@@ -171,7 +171,7 @@ static void qikCmd(uint8_t argc, char *argv[]) {
 			uint8_t mot = (uint8_t)strtoul(argv[1], NULL, 10);
 			if(strcmp("coast", argv[2]) == 0) {
 				qikSetCoast(mot);
-				printf("M%d coast\n", mot);
+				//printf("M%d coast\n", mot);
 			}
 
 			break;
@@ -187,7 +187,7 @@ static void qikCmd(uint8_t argc, char *argv[]) {
 			}
 
 			if(strcmp("mov", argv[2]) == 0) {
-				printf("Move M%d %s at speed %d\n", mot, (dir)? "Fwd" : "Rev", abs(speed));
+				//printf("Move M%d %s at speed %d\n", mot, (dir)? "Fwd" : "Rev", abs(speed));
 				qikSetSpeed(mot, abs(speed), dir);
 			}
 
