@@ -13,6 +13,9 @@ ofstream controlfile;
 float xPos = 0.0f;
 float yPos = 0.0f;
 
+float xCenter;
+float yCenter;
+
 #define WIDTH (640)
 #define HEIGHT (480)
 
@@ -88,17 +91,27 @@ void moveY(int32_t yDev) {
 
 uint32_t distanceFromCenter(uint32_t x, uint32_t y) {
 	// Ignore sqrt for now, since all we care is about relative distance
-	int32_t xDis = WIDTH/2 - x;
-	int32_t yDis = HEIGHT/2 - y;
+	int32_t xDis = xCenter - x;
+	int32_t yDis = yCenter - y;
 	return xDis * xDis + yDis * yDis;
 }
 
 int main(int argc, char ** argv) { 
 	
 	if(argc < 3) {
-		cout << "Usage: <serial device (/dev/ttyACM0)> <camera id (0,1,2...)>" << endl;
+		cout << "Usage: <serial device (/dev/ttyACM0)> <camera id (0,1,2...)> [xOffset yOffset]" << endl;
 		return -1;
 	}
+
+	xCenter = WIDTH/2;
+	yCenter = HEIGHT/2;
+
+	if(argc > 4) {
+		xCenter += strtol(argv[3], NULL, 0);
+		yCenter += strtol(argv[4], NULL, 0);
+	}
+
+	cout << "xCenter: " << xCenter << " yCenter: " << yCenter << endl; 
 
 	controlfile.open(argv[1], ios::out);
 
@@ -161,25 +174,25 @@ int main(int argc, char ** argv) {
 
 		if(circles.size()) {
 			Vec3i c = circles[mainCircle];
-			cout << "x:" << c[0] << " y:" << c[1] << " deviation: " << (WIDTH/2 - c[0]) << endl;
-			if((c[0] > (WIDTH/2 - c[2])) && (c[0] < (WIDTH/2 + c[2]))
-				&& (c[1] > (HEIGHT/2 - c[2])) && (c[1] < (HEIGHT/2 + c[2]))) {
+			cout << "x:" << c[0] << " y:" << c[1] << " deviation: " << (xCenter - c[0]) << endl;
+			if((c[0] > (xCenter - c[2])) && (c[0] < (xCenter + c[2]))
+				&& (c[1] > (yCenter - c[2])) && (c[1] < (yCenter + c[2]))) {
 				controlfile << "laser 1\n" << endl;
 				cout << "shoot!" << endl;
 			} else {
 				controlfile << "laser 0\n" << endl;
 				
 				// Only move if not centered
-				if((c[0] < (WIDTH/2 - c[2])) || (c[0] > (WIDTH/2 + c[2]))) {
-					moveX(WIDTH/2 - c[0]);
+				if((c[0] < (xCenter - c[2])) || (c[0] > (xCenter + c[2]))) {
+					moveX(xCenter - c[0]);
 				} else {
 					// Stop moving (only for gearmotors!)
 					moveX(0);
 				}
 				
 				// Only move if not centered
-				if((c[1] < (HEIGHT/2 - c[2])) || (c[1] > (HEIGHT/2 + c[2]))) {
-					moveY((HEIGHT/2 - c[1]));
+				if((c[1] < (yCenter - c[2])) || (c[1] > (yCenter + c[2]))) {
+					moveY((yCenter - c[1]));
 				} else {
 					moveY(0);
 				}
