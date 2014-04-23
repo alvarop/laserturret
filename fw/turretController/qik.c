@@ -88,12 +88,39 @@ void qikSetSpeed(uint8_t device, uint8_t speed, uint8_t direction) {
 
 	if(direction) {
 		cmd = CMD_M0FWD;
-		if(device == 0) {m0.dir = 1;}
-		if(device == 1) {m1.dir = 1;}
+		
+		if(device == 0) {
+			m0.dir = 1;
+			if(GPIO_ReadInputDataBit(m0.port, (1 << m0.rPin)) == 0) {
+				speed = 0;
+			}
+
+		}
+
+		if(device == 1) {
+			m1.dir = 1;
+			if(GPIO_ReadInputDataBit(m1.port, (1 << m1.rPin)) == 0) {
+				speed = 0;
+			}
+		}
+
 	} else {
 		cmd = CMD_M0REV;
-		if(device == 0) {m0.dir = 0;}
-		if(device == 1) {m1.dir = 0;}
+		
+		if(device == 0) {
+			m0.dir = 0;
+			if(GPIO_ReadInputDataBit(m0.port, (1 << m0.lPin)) == 0) { 
+				speed = 0;
+			}
+		}
+		
+		if(device == 1) {
+			m1.dir = 0;
+			if(GPIO_ReadInputDataBit(m1.port, (1 << m1.lPin)) == 0) {
+				speed = 0;
+			}
+		}
+
 	}
 
 	if(device) {
