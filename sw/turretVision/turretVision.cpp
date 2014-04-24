@@ -18,9 +18,11 @@ static float yCenter;
 #define WIDTH (640)
 #define HEIGHT (480)
 
+#define MIN_VELOCITY (11)
+
 // Circle detection sizes
 // TODO - make command-line arguments
-#define MIN_RADIUS (5)
+#define MIN_RADIUS (2)
 #define MAX_RADIUS (40)
 
 void moveX(int32_t deviation) {
@@ -38,10 +40,10 @@ void moveX(int32_t deviation) {
 	
 	velocity -= fPos * 200;
 
-	if((velocity < 0) && (velocity > -10)) {
-		velocity = -10;
-	} else if((velocity > 0) && (velocity < 10)) {
-		velocity = 10;
+	if((velocity < 0) && (velocity > -MIN_VELOCITY)) {
+		velocity = -MIN_VELOCITY;
+	} else if((velocity > 0) && (velocity < MIN_VELOCITY)) {
+		velocity = MIN_VELOCITY;
 	}
 	
 	controlfile << "qik 0 mov " << velocity << "\n" << endl;
@@ -62,10 +64,10 @@ void moveY(int32_t deviation) {
 		
 	velocity -= fPos * 200;
 
-	if((velocity < 0) && (velocity > -10)) {
-		velocity = -10;
-	} else if((velocity > 0) && (velocity < 10)) {
-		velocity = 10;
+	if((velocity < 0) && (velocity > -MIN_VELOCITY)) {
+		velocity = -MIN_VELOCITY;
+	} else if((velocity > 0) && (velocity < MIN_VELOCITY)) {
+		velocity = MIN_VELOCITY;
 	}
 
 	controlfile << "qik 1 mov " << velocity << "\n" << endl;
@@ -123,8 +125,11 @@ int main(int argc, char ** argv) {
 
 	while(char(waitKey(1)) != 'q' && cap.isOpened()) {
 		static uint32_t shooting = 0;
+		static uint32_t tracking = 0;
+
 		uint32_t mainCircle = 0;
 		float mainCircleDistance = numeric_limits<float>::max();
+		static float trackingCircleDistance = numeric_limits<float>::max();
 
 		Mat frame;
 		Mat cimg;
@@ -138,9 +143,17 @@ int main(int argc, char ** argv) {
 			break;
 		}
 
+		// Increase contrast and decrease brightness
+		// TODO - make this configurable
+		frame.convertTo(frame, -1, 10, -1000);
+
+		// Blur image for transform
 		medianBlur(frame, frame, 5);
+
+		// Convert to grayscale
 		cvtColor(frame, cimg, CV_BGR2GRAY);
 
+		// Find some circles!
 		HoughCircles(cimg, circles, CV_HOUGH_GRADIENT, 1, 10,
 					 100, 30, MIN_RADIUS, MAX_RADIUS); // change the last two parameters
 									// (min_radius & max_radius) to detect larger circles
@@ -148,6 +161,16 @@ int main(int argc, char ** argv) {
 		// Decrement shooting counter
 		if(shooting > 0) {
 			shooting--;
+		}
+
+		// Decrement tracking counter
+		if(tracking > 0) {
+			if(trackingCircleDistance < 1000) {
+				circle( cimg, Point(xCenter, yCenter), trackingCircleDistance, Scalar(0,0,255), 1, CV_AA);
+			}
+			tracking--;
+		} else {
+			trackingCircleDistance = 1000;
 		}
 
 		// Figure out which detected circle is closest to the center
@@ -158,6 +181,20 @@ int main(int argc, char ** argv) {
 				mainCircle = i;
 				mainCircleDistance = distanceFromCenter(c[0], c[1]);
 			}
+		}
+
+		if(tracking && trackingCircleDistance < mainCircleDistance) {
+			circles.clear();
+		} else if(tracking && trackingCircleDistance > mainCircleDistance) {
+			trackingCircleDistance = mainCircleDistance * 1.4;
+			tracking = 20;
+		} else if(!tracking) {
+			trackingCircleDistance = mainCircleDistance * 1.4;
+			tracking = 10;
+		}
+
+		if(trackingCircleDistance < 20) {
+			trackingCircleDistance = 20;
 		}
 
 		if(circles.size()) {
@@ -171,7 +208,9 @@ int main(int argc, char ** argv) {
 				
 				shooting = 10; // Will shoot for the next 10 frames (to reduce glitches)
 			} else {
-				controlfile << "laser 0\n" << endl;
+				if(shooting == 0) {
+					controlfile << "laser 0\n" << endl;
+				}
 				
 				// Only move if not centered
 				if((c[0] < (xCenter - c[2]/2)) || (c[0] > (xCenter + c[2]/2))) {
