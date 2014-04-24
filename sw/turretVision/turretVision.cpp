@@ -72,11 +72,17 @@ void moveY(int32_t deviation) {
 	cout << "qik 1 mov " << velocity << "\n" << endl;
 }
 
-uint32_t distanceFromCenter(uint32_t x, uint32_t y) {
-	// Ignore sqrt for now, since all we care is about relative distance
-	int32_t xDis = xCenter - x;
-	int32_t yDis = yCenter - y;
-	return xDis * xDis + yDis * yDis;
+float distanceFromCenter(float x, float y) {
+	float xDis = xCenter - x;
+	float yDis = yCenter - y;
+	return sqrt(xDis * xDis + yDis * yDis);
+}
+
+// Checks if point x,y is within a circle centered at cirX,cirY with radius 'radius'
+bool isInCircle(float x, float y, float cirX, float cirY, float radius) {
+	float xDis = cirX - x;
+	float yDis = cirY - y;
+	return (sqrt(xDis * xDis + yDis * yDis) < radius);
 }
 
 int main(int argc, char ** argv) { 
@@ -118,7 +124,7 @@ int main(int argc, char ** argv) {
 	while(char(waitKey(1)) != 'q' && cap.isOpened()) {
 		static uint32_t shooting = 0;
 		uint32_t mainCircle = 0;
-		uint32_t mainCircleDistance = numeric_limits<uint32_t>::max();
+		float mainCircleDistance = numeric_limits<float>::max();
 
 		Mat frame;
 		Mat cimg;
@@ -159,8 +165,7 @@ int main(int argc, char ** argv) {
 			
 			cout << "x:" << c[0] << " y:" << c[1] << " deviation: " << (xCenter - c[0]) << endl;
 			
-			if((c[0] > (xCenter - c[2]/2)) && (c[0] < (xCenter + c[2]/2))
-				&& (c[1] > (yCenter - c[2]/2)) && (c[1] < (yCenter + c[2]/2))) {
+			if(isInCircle(c[0], c[1], xCenter, yCenter, c[2]/2)) {	
 				controlfile << "laser 1\n" << endl;
 				cout << "shoot!" << endl;
 				
