@@ -10,83 +10,53 @@ using namespace cv;
 
 ofstream controlfile;
 
-float xPos = 0.0f;
-float yPos = 0.0f;
+static float xCenter;
+static float yCenter;
 
-float xCenter;
-float yCenter;
-
+// Image dimensions
 #define WIDTH (640)
 #define HEIGHT (480)
 
-#define MICROSTEP_16
-#ifdef MICROSTEP_16
-// This is for /16 microstepping
-#define XMAX	(2400)
-#define YMAX	(2000)
-#define SPEED (1000)
-#else
-// This is for NO microstepping
-#define XMAX	(150)
-#define YMAX	(125)
-#define SPEED	(2500)
-#endif
+// Circle detection sizes
+// TODO - make command-line arguments
+#define MIN_RADIUS (5)
+#define MAX_RADIUS (40)
 
-void moveX(int32_t xDev) {
-	uint32_t xServo;
-	int32_t xStepper;
-	int32_t xMov = 0;
+void moveX(int32_t deviation) {
+	float fPos;
+	int32_t velocity = 0;
 	
-	xPos = (float)xDev/WIDTH;
+	fPos = (float)deviation/WIDTH;
 	
-	if(xPos < -0.5) {
-		xPos = -0.5;
-		xMov = -20;
-	} else if (xPos > 0.5) {
-		xPos = 0.5;
-		xMov = 20;
+	// Clipping
+	if(fPos < -0.5) {
+		fPos = -0.5;
+	} else if (fPos > 0.5) {
+		fPos = 0.5;
 	}
 	
-	xStepper = -xPos * 2 * XMAX;
+	velocity -= fPos * 200;
 	
-	xServo = 1500 + xPos * 1000;
-	
-	xMov -= xPos * 200;
-	
-	//controlfile << "servo 0 " << xServo << "\n" << endl;
-	//controlfile << "stepper 0 pos " << xStepper << " " << SPEED << "\n" << endl;
-	controlfile << "qik 0 mov " << xMov << "\n" << endl;
-	cout << "qik 0 mov " << xMov << "\n" << endl;
+	controlfile << "qik 0 mov " << velocity << "\n" << endl;
+	cout << "qik 0 mov " << velocity << "\n" << endl;
 }
 
-void moveY(int32_t yDev) {
-	uint32_t yServo;
-	int32_t yStepper;
-	int32_t yMov = 0;
+void moveY(int32_t deviation) {
+	float fPos;
+	int32_t velocity = 0;
 	
-	yPos = (float)yDev/HEIGHT;
+	fPos = (float)deviation/HEIGHT;
 
-	if(yPos < -0.5) {
-		yPos = -0.5;
-		yMov = 20;
-	} else if (yPos > 0.5) {
-		yPos = 0.5;
-		yMov = -20;
+	if(fPos < -0.5) {
+		fPos = -0.5;
+	} else if (fPos > 0.5) {
+		fPos = 0.5;
 	}
-	
-	yStepper = -yPos * 2 * YMAX;
-	
-	yServo = 1500 + yPos * 1000;
-	
-	yMov -= yPos * 200;
+		
+	velocity -= fPos * 200;
 
-	//controlfile << "servo 1 " << yServo << "\n" << endl;
-
-	//controlfile << "stepper 1 pos " << yStepper << " " << SPEED << "\n" << endl;
-	//cout << "stepper 1 pos " << yStepper << " " << SPEED << "\n" << endl;
-
-	controlfile << "qik 1 mov " << yMov << "\n" << endl;
-	cout << "qik 1 mov " << yMov << " " << yPos << "\n" << endl;
+	controlfile << "qik 1 mov " << velocity << "\n" << endl;
+	cout << "qik 1 mov " << velocity << "\n" << endl;
 }
 
 uint32_t distanceFromCenter(uint32_t x, uint32_t y) {
@@ -106,6 +76,7 @@ int main(int argc, char ** argv) {
 	xCenter = WIDTH/2;
 	yCenter = HEIGHT/2;
 
+	// Adjust for laser center using command-line arguments
 	if(argc > 4) {
 		xCenter += strtol(argv[3], NULL, 0);
 		yCenter += strtol(argv[4], NULL, 0);
@@ -114,23 +85,12 @@ int main(int argc, char ** argv) {
 	cout << "xCenter: " << xCenter << " yCenter: " << yCenter << endl; 
 
 	controlfile.open(argv[1], ios::out);
-
-	controlfile << "servo 0 1500\n" << endl;
-	controlfile << "servo 1 1500\n" << endl;
 	
-	controlfile << "stepper 0 bounds " << -XMAX << " " << XMAX << "\n" << endl;
-	controlfile << "stepper 1 bounds " << -YMAX << " " << YMAX << "\n" << endl;
-	
-	controlfile << "stepper 0 on\n" << endl;
-	controlfile << "stepper 1 on\n" << endl;
-	
-	
+	// Make sure the motors are not moving
 	controlfile << "qik 0 mov 0\n" << endl;
 	controlfile << "qik 1 mov 0\n" << endl;
 	
-	//controlfile << "qik 0 coast\n" << endl;
-	//controlfile << "qik 1 coast\n" << endl;
-	
+	// Make sure laser is off
 	controlfile << "laser 0\n" << endl;
 
 	VideoCapture cap(strtoul(argv[2], NULL, 10));
@@ -143,6 +103,9 @@ int main(int argc, char ** argv) {
 	namedWindow("Video");
 
 	while(char(waitKey(1)) != 'q' && cap.isOpened()) {
+		uint32_t mainCircle = 0;
+		uint32_t mainCircleDistance = UINT32_MAX;
+
 		Mat frame;
 		cap >> frame;
 
@@ -157,12 +120,12 @@ int main(int argc, char ** argv) {
 
 		vector<Vec3f> circles;
 		HoughCircles(cimg, circles, CV_HOUGH_GRADIENT, 1, 10,
-					 100, 30, 5, 40 // change the last two parameters
+					 100, 30, MIN_RADIUS, MAX_RADIUS // change the last two parameters
 									// (min_radius & max_radius) to detect larger circles
 					 );
-		uint32_t mainCircle = 0;
-		uint32_t mainCircleDistance = 100000;
+
 		
+		// Figure out which detected circle is closest to the center
 		for( size_t i = 0; i < circles.size(); i++ )
 		{
 			Vec3i c = circles[i];
@@ -174,7 +137,9 @@ int main(int argc, char ** argv) {
 
 		if(circles.size()) {
 			Vec3i c = circles[mainCircle];
+			
 			cout << "x:" << c[0] << " y:" << c[1] << " deviation: " << (xCenter - c[0]) << endl;
+			
 			if((c[0] > (xCenter - c[2])) && (c[0] < (xCenter + c[2]))
 				&& (c[1] > (yCenter - c[2])) && (c[1] < (yCenter + c[2]))) {
 				controlfile << "laser 1\n" << endl;
@@ -198,32 +163,27 @@ int main(int argc, char ** argv) {
 				}
 			}
 			
+			// Draw around the circle we're targeting
 			circle( cimg, Point(c[0], c[1]), c[2], Scalar(0,0,255), 3, CV_AA);
 			circle( cimg, Point(c[0], c[1]), 2, Scalar(0,255,0), 3, CV_AA);
 		} else {
-		
+			// If there are no circles, stop moving
+			// TODO - start searching for others?
 			controlfile << "qik 0 mov 0\n" << endl;
 			controlfile << "qik 1 mov 0\n" << endl;
-			//controlfile << "qik 0 coast\n" << endl;
-			//controlfile << "qik 1 coast\n" << endl;
 			controlfile << "laser 0\n" << endl;
 		}
 		
-		
-
 		imshow("Video", cimg);
 	}
 
-	controlfile << "stepper 0 off\n" << endl;
-	controlfile << "stepper 1 off\n" << endl;
-	
-	controlfile << "servo 0 1500\n" << endl;
-	controlfile << "servo 1 1500\n" << endl;
 	controlfile << "laser 0\n" << endl;
 	
+	// Stop motors
 	controlfile << "qik 0 mov 0\n" << endl;
 	controlfile << "qik 1 mov 0\n" << endl;
 	
+	// Start coasting
 	controlfile << "qik 0 coast\n" << endl;
 	controlfile << "qik 1 coast\n" << endl;
 
