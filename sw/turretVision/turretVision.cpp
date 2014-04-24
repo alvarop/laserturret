@@ -37,6 +37,12 @@ void moveX(int32_t deviation) {
 	}
 	
 	velocity -= fPos * 200;
+
+	if((velocity < 0) && (velocity > -10)) {
+		velocity -= 10;
+	} else if((velocity > 0) && (velocity < 10)) {
+		velocity += 10;
+	}
 	
 	controlfile << "qik 0 mov " << velocity << "\n" << endl;
 	cout << "qik 0 mov " << velocity << "\n" << endl;
@@ -55,6 +61,12 @@ void moveY(int32_t deviation) {
 	}
 		
 	velocity -= fPos * 200;
+
+	if((velocity < 0) && (velocity > -10)) {
+		velocity -= 10;
+	} else if((velocity > 0) && (velocity < 10)) {
+		velocity += 10;
+	}
 
 	controlfile << "qik 1 mov " << velocity << "\n" << endl;
 	cout << "qik 1 mov " << velocity << "\n" << endl;
@@ -141,15 +153,15 @@ int main(int argc, char ** argv) {
 			
 			cout << "x:" << c[0] << " y:" << c[1] << " deviation: " << (xCenter - c[0]) << endl;
 			
-			if((c[0] > (xCenter - c[2])) && (c[0] < (xCenter + c[2]))
-				&& (c[1] > (yCenter - c[2])) && (c[1] < (yCenter + c[2]))) {
+			if((c[0] > (xCenter - c[2]/2)) && (c[0] < (xCenter + c[2]/2))
+				&& (c[1] > (yCenter - c[2]/2)) && (c[1] < (yCenter + c[2]/2))) {
 				controlfile << "laser 1\n" << endl;
 				cout << "shoot!" << endl;
 			} else {
 				controlfile << "laser 0\n" << endl;
 				
 				// Only move if not centered
-				if((c[0] < (xCenter - c[2])) || (c[0] > (xCenter + c[2]))) {
+				if((c[0] < (xCenter - c[2]/2)) || (c[0] > (xCenter + c[2]/2))) {
 					moveX(xCenter - c[0]);
 				} else {
 					// Stop moving (only for gearmotors!)
@@ -157,7 +169,7 @@ int main(int argc, char ** argv) {
 				}
 				
 				// Only move if not centered
-				if((c[1] < (yCenter - c[2])) || (c[1] > (yCenter + c[2]))) {
+				if((c[1] < (yCenter - c[2]/2)) || (c[1] > (yCenter + c[2]/2))) {
 					moveY((yCenter - c[1]));
 				} else {
 					moveY(0);
