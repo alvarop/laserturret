@@ -4,6 +4,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <stdlib.h>
+#include <limits>
 
 using namespace std;
 using namespace cv;
@@ -104,7 +105,7 @@ int main(int argc, char ** argv) {
 
 	while(char(waitKey(1)) != 'q' && cap.isOpened()) {
 		uint32_t mainCircle = 0;
-		uint32_t mainCircleDistance = UINT32_MAX;
+		uint32_t mainCircleDistance = numeric_limits<uint32_t>::max();
 
 		Mat frame;
 		cap >> frame;
