@@ -39,9 +39,9 @@ void moveX(int32_t deviation) {
 	velocity -= fPos * 200;
 
 	if((velocity < 0) && (velocity > -10)) {
-		velocity -= 10;
+		velocity = -10;
 	} else if((velocity > 0) && (velocity < 10)) {
-		velocity += 10;
+		velocity = 10;
 	}
 	
 	controlfile << "qik 0 mov " << velocity << "\n" << endl;
@@ -63,9 +63,9 @@ void moveY(int32_t deviation) {
 	velocity -= fPos * 200;
 
 	if((velocity < 0) && (velocity > -10)) {
-		velocity -= 10;
+		velocity = -10;
 	} else if((velocity > 0) && (velocity < 10)) {
-		velocity += 10;
+		velocity = 10;
 	}
 
 	controlfile << "qik 1 mov " << velocity << "\n" << endl;
@@ -116,10 +116,15 @@ int main(int argc, char ** argv) {
 	namedWindow("Video");
 
 	while(char(waitKey(1)) != 'q' && cap.isOpened()) {
+		static uint32_t shooting = 0;
 		uint32_t mainCircle = 0;
 		uint32_t mainCircleDistance = numeric_limits<uint32_t>::max();
 
 		Mat frame;
+		Mat cimg;
+
+		vector<Vec3f> circles;
+
 		cap >> frame;
 
 		if(frame.empty()) {
@@ -127,17 +132,18 @@ int main(int argc, char ** argv) {
 			break;
 		}
 
-		Mat cimg;
 		medianBlur(frame, frame, 5);
 		cvtColor(frame, cimg, CV_BGR2GRAY);
 
-		vector<Vec3f> circles;
 		HoughCircles(cimg, circles, CV_HOUGH_GRADIENT, 1, 10,
-					 100, 30, MIN_RADIUS, MAX_RADIUS // change the last two parameters
+					 100, 30, MIN_RADIUS, MAX_RADIUS); // change the last two parameters
 									// (min_radius & max_radius) to detect larger circles
-					 );
 
-		
+		// Decrement shooting counter
+		if(shooting > 0) {
+			shooting--;
+		}
+
 		// Figure out which detected circle is closest to the center
 		for( size_t i = 0; i < circles.size(); i++ )
 		{
@@ -157,6 +163,8 @@ int main(int argc, char ** argv) {
 				&& (c[1] > (yCenter - c[2]/2)) && (c[1] < (yCenter + c[2]/2))) {
 				controlfile << "laser 1\n" << endl;
 				cout << "shoot!" << endl;
+				
+				shooting = 10; // Will shoot for the next 10 frames (to reduce glitches)
 			} else {
 				controlfile << "laser 0\n" << endl;
 				
@@ -184,7 +192,12 @@ int main(int argc, char ** argv) {
 			// TODO - start searching for others?
 			controlfile << "qik 0 mov 0\n" << endl;
 			controlfile << "qik 1 mov 0\n" << endl;
-			controlfile << "laser 0\n" << endl;
+
+			// Only turn off laser after a few frames without seeing the circle
+			// This reduces glitches (will need a better system for multiple circles)
+			if(shooting == 0) {
+				controlfile << "laser 0\n" << endl;
+			}
 		}
 		
 		imshow("Video", cimg);
