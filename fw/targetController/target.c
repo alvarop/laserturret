@@ -86,11 +86,12 @@ void targetInit() {
 		// Disable target
 		GPIO_WriteBit(targets[target].powerPort, (1 << targets[target].powerPin), 1);
 
+		// Wait for change to take effect
 		delay(1000);
 
 		// Check if target is plugged in
 		if(targetRead(target) == 0xFFF) {
-			printf("Target %d connected.\n", target);
+			printf("%d connected\n", target);
 			targets[target].connected = 1;
 		} else {
 			targets[target].connected = 0;
@@ -143,7 +144,7 @@ void targetCalibrate(uint8_t target, uint8_t state) {
 		}
 
 		targets[target].hitThreshold = (targets[target].highThreshold - targets[target].lowThreshold)/2 + targets[target].lowThreshold;
-		printf("New hitThreshold = %d\n", targets[target].hitThreshold);
+		printf("%d ht = %d\n", target, targets[target].hitThreshold);
 	}
 }
 
@@ -196,7 +197,7 @@ void targetProcess() {
 			}
 
 			if(targets[target].enabled && (targets[target].timeHit >= TARGET_HIT_THRESHOLD)) {
-				printf("HIT %d\n", target);
+				printf("%d hit\n", target);
 				targetSet(target, 0); // Turn off the target
 			}
 		}
