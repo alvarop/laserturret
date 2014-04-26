@@ -57,7 +57,15 @@ class serialWriteThread(threading.Thread):
 
 
 def processLine(line):
-	print line,
+	args = line.split()
+
+	if len(args) > 1:
+		if args[1] == "connected":
+			print "Target", int(args[0]), "is connected"
+		elif args[1] == "hit":
+			print "Target", int(args[0]), "hit!"
+		else:
+			print "controller: ", line,
 
 # 
 #  Start here :D
