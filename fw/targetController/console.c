@@ -18,6 +18,7 @@ static uint8_t argc;
 static char* argv[8];
 
 static void helpFn(uint8_t argc, char *argv[]);
+static void init(uint8_t argc, char *argv[]);
 static void set(uint8_t argc, char *argv[]);
 static void read(uint8_t argc, char *argv[]);
 static void calibrate(uint8_t argc, char *argv[]);
@@ -26,6 +27,7 @@ static void start(uint8_t argc, char *argv[]);
 static void stop(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
+	{"init", init, "Usage: init - init targets (re-scan)"},
 	{"set", set, "Usage: set <target> <0,1>"},
 	{"read", read, "Usage: read <target>"},
 	{"cal", calibrate, "Usage: cal <target> <0(miss),1(hit)>"},
@@ -57,6 +59,13 @@ static void helpFn(uint8_t argc, char *argv[]) {
 			command++;
 		}
 	}
+}
+
+//
+// Init
+//
+static void init(uint8_t argc, char *argv[]) {
+	targetInit();	
 }
 
 //
@@ -115,8 +124,6 @@ static void stop(uint8_t argc, char *argv[]) {
 	printf("Stopping targets\n");
 	targetStop();
 }
-
-
 
 void consoleProcess() {
 	uint32_t inBytes = fifoSize(&usbRxFifo);

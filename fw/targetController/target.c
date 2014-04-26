@@ -11,6 +11,7 @@ typedef struct {
 	uint8_t powerPin;
 	uint8_t adcChannel;
 	uint8_t enabled;
+	uint8_t connected;
 	uint32_t timeHit;
 	uint16_t hitThreshold;
 	uint16_t lowThreshold;
@@ -18,18 +19,18 @@ typedef struct {
 } target_t;
 
 static target_t targets[TOTAL_TARGETS] = {
-	{GPIOA,	0,	ADC1,	GPIOA,	15,	0,	0, 0, 2048, 0, 4096},
-	{GPIOA,	1,	ADC1,	GPIOB,	4,	1,	0, 0, 2048, 0, 4096},
-	{GPIOA,	2,	ADC1,	GPIOB,	5,	2,	0, 0, 2048, 0, 4096},
-	{GPIOA,	3,	ADC1,	GPIOB,	7,	3,	0, 0, 2048, 0, 4096},
+	{GPIOA,	0,	ADC1,	GPIOA,	15,	0,	0, 0, 0, 2048, 0, 4096},
+	{GPIOA,	1,	ADC1,	GPIOB,	4,	1,	0, 0, 0, 2048, 0, 4096},
+	{GPIOA,	2,	ADC1,	GPIOB,	5,	2,	0, 0, 0, 2048, 0, 4096},
+	{GPIOA,	3,	ADC1,	GPIOB,	7,	3,	0, 0, 0, 2048, 0, 4096},
 
-	{GPIOB,	0,	ADC1,	GPIOB,	8,	8,	0, 0, 2048, 0, 4096},
-	{GPIOB,	1,	ADC1,	GPIOB,	11,	9,	0, 0, 2048, 0, 4096},
+	{GPIOB,	0,	ADC1,	GPIOB,	8,	8,	0, 0, 0, 2048, 0, 4096},
+	{GPIOB,	1,	ADC1,	GPIOB,	11,	9,	0, 0, 0, 2048, 0, 4096},
 
-	{GPIOC,	1,	ADC1,	GPIOB,	12,	11,	0, 0, 2048, 0, 4096},
-	{GPIOC,	2,	ADC1,	GPIOB,	13,	12,	0, 0, 2048, 0, 4096},
-	{GPIOC,	4,	ADC1,	GPIOB,	14,	13,	0, 0, 2048, 0, 4096},
-	{GPIOC,	5,	ADC1,	GPIOC,	6,	15,	0, 0, 2048, 0, 4096},
+	{GPIOC,	1,	ADC1,	GPIOB,	12,	11,	0, 0, 0, 2048, 0, 4096},
+	{GPIOC,	2,	ADC1,	GPIOB,	13,	12,	0, 0, 0, 2048, 0, 4096},
+	{GPIOC,	4,	ADC1,	GPIOB,	14,	13,	0, 0, 0, 2048, 0, 4096},
+	{GPIOC,	5,	ADC1,	GPIOC,	6,	15,	0, 0, 0, 2048, 0, 4096},
 	
 };
 
@@ -81,6 +82,19 @@ void targetInit() {
 	for(uint8_t target = 0; target < TOTAL_TARGETS; target++) {
 		GPIO_Init(targets[target].sensePort, &(GPIO_InitTypeDef){(1 << targets[target].sensePin), GPIO_Mode_AN, GPIO_OType_OD, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
 		GPIO_Init(targets[target].powerPort, &(GPIO_InitTypeDef){(1 << targets[target].powerPin), GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+
+		// Disable target
+		GPIO_WriteBit(targets[target].powerPort, (1 << targets[target].powerPin), 1);
+
+		delay(1000);
+
+		// Check if target is plugged in
+		if(targetRead(target) == 0xFFF) {
+			printf("Target %d connected.\n", target);
+			targets[target].connected = 1;
+		} else {
+			targets[target].connected = 0;
+		}
 
 		// Enable target
 		GPIO_WriteBit(targets[target].powerPort, (1 << targets[target].powerPin), 0);
@@ -152,15 +166,15 @@ void targetSetHitThreshold(uint8_t target, uint16_t newThreshold) {
 
 void targetSet(uint8_t target, uint8_t enable) {
 	if(target < TOTAL_TARGETS) {
-		// Enable target
-		GPIO_WriteBit(targets[target].powerPort, (1 << targets[target].powerPin), (~enable & 1));
+		if(targets[target].connected) {	
+			// Enable target
+			GPIO_WriteBit(targets[target].powerPort, (1 << targets[target].powerPin), (~enable & 1));
 
-		printf("set GPIO%c.%d = %d\n", PORT_LETTER(targets[target].powerPort), targets[target].powerPin, (~enable & 1));
+			targets[target].enabled = enable;
 
-		targets[target].enabled = enable;
-
-		if(enable) {
-			targets[target].timeHit = 0;
+			if(enable) {
+				targets[target].timeHit = 0;
+			}
 		}
 	}
 }
@@ -182,7 +196,7 @@ void targetProcess() {
 			}
 
 			if(targets[target].enabled && (targets[target].timeHit >= TARGET_HIT_THRESHOLD)) {
-				printf("Target %d hit!\n", target);
+				printf("HIT %d\n", target);
 				targetSet(target, 0); // Turn off the target
 			}
 		}
