@@ -5,6 +5,7 @@ import io
 import threading
 import Queue
 import signal
+from datetime import datetime
 
 def signal_handler(signal, frame):
 	print "exiting"
@@ -140,11 +141,19 @@ writeThread.write("init\n")
 # Enable targets and wait for hits
 writeThread.write("start\n")
 
+startTime = datetime.now()
+
 while not done:
 	# Wait for next event
 	eventLock.wait()
 	eventLock.clear()
 
 	checkTargets()
+
+endTime = datetime.now()
+
+totalTime = endTime - startTime
+
+print "Time: ", (totalTime.seconds + totalTime.microseconds / 1000000.0)
 
 sys.exit(0)
