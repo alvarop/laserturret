@@ -4,7 +4,6 @@ import sys
 import io
 import threading
 import Queue
-import time
 import signal
 
 def signal_handler(signal, frame):
@@ -25,9 +24,7 @@ class serialReadThread(threading.Thread):
 	def run(self):
 		while self.running:
 			line = self.stream.readline();
-			inQueueLock.acquire()
-			inQueue.put(line)
-			inQueueLock.release()
+			processLine(line)
 
 #
 # Write serial stream and add lines to shared queue
@@ -42,18 +39,21 @@ class serialWriteThread(threading.Thread):
 
 	def run(self):
 		while self.running:
+
 			if not outQueue.empty():
 				outQueueLock.acquire()
 				line = unicode(outQueue.get())
 				self.stream.write(line)
 				outQueueLock.release()
-			else :
-				time.sleep(0.001)
+			else:
+				outDataAvailable.wait()
+				outDataAvailable.clear()
 
 	def write(self, line):
 		outQueueLock.acquire()
 		outQueue.put(line)
 		outQueueLock.release()
+		outDataAvailable.set()
 
 #
 # Process lines coming from targetController via USB-serial link
@@ -78,6 +78,9 @@ def processLine(line):
 				targetLock.release()
 		else:
 			print "controller: ", line,
+
+	# Something happened, let the main thread run
+	eventLock.set()
 
 #
 # Go through each target and check if they've been hit
@@ -109,13 +112,14 @@ signal.signal(signal.SIGINT, signal_handler)
 
 print "Press Ctrl + C to exit"
 
-inQueueLock = threading.Lock()
-inQueue = Queue.Queue()
-
 outQueueLock = threading.Lock()
 outQueue = Queue.Queue()
 
+outDataAvailable = threading.Event() # Used to block write thread until data is available
+
 targetLock = threading.Lock()
+
+eventLock = threading.Event() # Used to block main thread while waiting for events
 
 targets = {}
 done = 0
@@ -137,19 +141,9 @@ writeThread.write("init\n")
 writeThread.write("start\n")
 
 while not done:
-	if not inQueue.empty():
-		inQueueLock.acquire()
-		line = inQueue.get()
-		inQueueLock.release()
-
-		# Process line here
-		# We could probably do this in the readThread, leaving here for now
-		processLine(line)
-
-	else:
-		# Sleep so CPU doesn't spin at 100%
-		# TODO - add nicer blocking
-		time.sleep(0.001)
+	# Wait for next event
+	eventLock.wait()
+	eventLock.clear()
 
 	checkTargets()
 
