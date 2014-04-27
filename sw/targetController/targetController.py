@@ -8,7 +8,7 @@ import time
 import signal
 
 def signal_handler(signal, frame):
-	print('You pressed Ctrl+C!')
+	print "exiting"
 	sys.exit(0)
 
 #
@@ -55,17 +55,48 @@ class serialWriteThread(threading.Thread):
 		outQueue.put(line)
 		outQueueLock.release()
 
-
+#
+# Process lines coming from targetController via USB-serial link
+#
 def processLine(line):
+	global targets
 	args = line.split()
 
 	if len(args) > 1:
 		if args[1] == "connected":
-			print "Target", int(args[0]), "is connected"
+			targetID = int(args[0])
+			print "Target", targetID , "is connected"
+			targetLock.acquire()
+			targets[targetID] = True
+			targetLock.release()
 		elif args[1] == "hit":
-			print "Target", int(args[0]), "hit!"
+			targetID = int(args[0])
+			print "Target", targetID, "hit!"
+			if targetID in targets:
+				targetLock.acquire()
+				targets[targetID] = False
+				targetLock.release()
 		else:
 			print "controller: ", line,
+
+#
+# Go through each target and check if they've been hit
+# If they're all hit, exit
+#
+def checkTargets():
+	if(len(targets) > 0):
+		notDone = 0
+
+		targetLock.acquire()
+		for key in targets.keys():
+			if targets[key] == True:
+				notDone = 1
+		targetLock.release()
+
+		if notDone == 0:
+			global done
+			done = 1
+			print "All targets hit!"
 
 # 
 #  Start here :D
@@ -74,15 +105,20 @@ if not len(sys.argv) > 1:
 	print "Usage: " + sys.argv[0] + " </dev/serialdevicename>"
 	sys.exit(0)
 
-print "Press Ctrl + C to exit"
-
 signal.signal(signal.SIGINT, signal_handler)
+
+print "Press Ctrl + C to exit"
 
 inQueueLock = threading.Lock()
 inQueue = Queue.Queue()
 
 outQueueLock = threading.Lock()
 outQueue = Queue.Queue()
+
+targetLock = threading.Lock()
+
+targets = {}
+done = 0
 
 # Start readThread as daemon so it will automatically close on program exit
 readThread = serialReadThread(sys.argv[1])
@@ -100,7 +136,7 @@ writeThread.write("init\n")
 # Enable targets and wait for hits
 writeThread.write("start\n")
 
-while 1:
+while not done:
 	if not inQueue.empty():
 		inQueueLock.acquire()
 		line = inQueue.get()
@@ -114,3 +150,7 @@ while 1:
 		# Sleep so CPU doesn't spin at 100%
 		# TODO - add nicer blocking
 		time.sleep(0.001)
+
+	checkTargets()
+
+sys.exit(0)
