@@ -70,6 +70,7 @@ def processLine(line):
 			targetLock.acquire()
 			targets[targetID] = True
 			targetLock.release()
+			writeThread.write("set " + str(targetID) + " 0\n")
 		elif args[1] == "hit":
 			targetID = int(args[0])
 			print "Target", targetID, "hit!"
@@ -145,7 +146,7 @@ startTime = datetime.now()
 
 while not done:
 	# Wait for next event
-	eventLock.wait()
+	eventLock.wait(0.1)
 	eventLock.clear()
 
 	checkTargets()
