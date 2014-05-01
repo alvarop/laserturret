@@ -6,6 +6,7 @@ import threading
 import Queue
 import signal
 from datetime import datetime
+from random import randint
 
 def signal_handler(signal, frame):
 	print "exiting"
@@ -77,7 +78,17 @@ def processLine(line):
 			if targetID in targets:
 				targetLock.acquire()
 				targets[targetID] = False
+				currentTarget = randint(0, len(targets) - 1)
+				targets[currentTarget] = True
 				targetLock.release()
+				writeThread.write("set " + str(currentTarget) + " 1\n")
+		elif args[1] == "started":
+			currentTarget = randint(0, len(targets) - 1)
+			writeThread.write("set " + str(currentTarget) + " 1\n")
+			targetLock.acquire()
+			targets[currentTarget] = True
+			targetLock.release()
+
 		else:
 			print "controller: ", line,
 
@@ -125,6 +136,7 @@ eventLock = threading.Event() # Used to block main thread while waiting for even
 
 targets = {}
 done = 0
+currentTarget = 0
 
 # Start readThread as daemon so it will automatically close on program exit
 readThread = serialReadThread(sys.argv[1])
