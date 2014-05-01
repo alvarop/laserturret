@@ -46,21 +46,25 @@ void delay(uint32_t delay) {
 	}
 }
 
-void targetStart() {
+void targetStart(uint8_t all) {
 	targetsRunning = 1;
 
-	for(uint8_t target = 0; target < TOTAL_TARGETS; target++) {
-		targetSet(target, 1);
+	if(all) {
+		for(uint8_t target = 0; target < TOTAL_TARGETS; target++) {
+			targetSet(target, 1);
+		}
 	}
 
 	targetTimer = tickMs + TARGET_REFRESH_RATE;
+
+	printf("targets started\n");
 
 }
 
 void targetStop() {
 	targetsRunning = 0;
+	printf("targets stopped\n");
 }
-
 
 void targetInit() {
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
@@ -125,7 +129,7 @@ void targetCalibrate(uint8_t target, uint8_t state) {
 	if(target < TOTAL_TARGETS) {
 		uint32_t samples = 0;
 
-		printf("Calibrating target %d.\nTaking %d samples\n", target, TARGET_CAL_SAMPLES);
+		//printf("Calibrating target %d.\nTaking %d samples\n", target, TARGET_CAL_SAMPLES);
 		for(uint16_t sample = 0; sample < TARGET_CAL_SAMPLES; sample++) {
 			uint16_t value = targetRead(target);
 			samples += value;
@@ -135,7 +139,7 @@ void targetCalibrate(uint8_t target, uint8_t state) {
 		// Get average
 		samples /= TARGET_CAL_SAMPLES;
 
-		printf("Average value: %ld\n", samples);
+		//printf("Average value: %ld\n", samples);
 
 		if(state) {
 			targets[target].highThreshold = samples;
@@ -144,7 +148,9 @@ void targetCalibrate(uint8_t target, uint8_t state) {
 		}
 
 		targets[target].hitThreshold = (targets[target].highThreshold - targets[target].lowThreshold)/2 + targets[target].lowThreshold;
-		printf("%d ht = %d\n", target, targets[target].hitThreshold);
+
+		//printf("New hitThreshold = %d\n", targets[target].hitThreshold);
+		printf("%d AVG %ld\n", target, samples);
 	}
 }
 

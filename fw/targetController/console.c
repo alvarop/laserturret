@@ -106,7 +106,7 @@ static void calibrate(uint8_t argc, char *argv[]) {
 static void hitThreshold(uint8_t argc, char *argv[]) {
 	if(argc == 2) {
 		uint8_t target = strtoul(argv[1], NULL, 10);
-		printf("Target%d hitThreshold: %d\n", target, targetGetHitThreshold(target));
+		printf("%d ht %d\n", target, targetGetHitThreshold(target));
 	} else if(argc == 3) {
 		uint8_t target = strtoul(argv[1], NULL, 10);
 		uint16_t newThreshold = strtoul(argv[2], NULL, 10);
@@ -117,7 +117,13 @@ static void hitThreshold(uint8_t argc, char *argv[]) {
 
 static void start(uint8_t argc, char *argv[]) {
 	printf("Starting targets\n");
-	targetStart();
+	uint8_t all = 0;
+	
+	if((argc > 1) && strcmp("all", argv[1]) == 0) {
+		all = 1;
+	}
+
+	targetStart(all);
 }
 
 static void stop(uint8_t argc, char *argv[]) {
