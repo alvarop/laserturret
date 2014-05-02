@@ -137,9 +137,38 @@ def main():
 
                 #Will shoot for the next 10 frames.
                 time_on_target = 10
+            #If we aren't within the acceptable area for shooting (centeredish)
             else:
                 if time_on_target == 0:
                     CONTROLFILE.write(u"laser 0\n")
+
+                #Should move if not centered.
+                if x < (x_center - radius/2) or x > (x_center + radius/2):
+                    move_X(x_center-x)
+                else:
+                    move_X(0)
+
+                if y < (y_center - radius/2) or y > (y_center + radius/2):
+                    move_Y(y_center-y)
+                else:
+                    move_X(0)
+
+            cv2.circle(frame, (x, y), radius, (128, 128, 128))
+            cv2.circle(frame, (x, y), 2, (128, 128, 128))
+            
+        else:
+            
+            CONTROLFILE.write(u"qik 0 move 0\n")
+            CONTROLFILE.write(u"qik 1 move 0\n")
+
+    CONTROLFILE.write(u"laser 0\n")
+
+    #Stop motors
+    CONTROLFILE.write(u"qik 0 mov 0\n")
+    CONTROLFILE.write(u"qik 1 mov 0\n")
+    
+    CONTROLFILE.write(u"qik 0 coast\n")
+    CONTROLFILE.write(u"qik 1 coast\n")
 
 def is_in_circle(x1, y1, x2, y2, radius):            
            
@@ -154,5 +183,11 @@ def is_in_circle(x1, y1, x2, y2, radius):
 def distance_from_center(x_dist, y_dist):
     '''Euclidean distance from center of a frame.'''
     return math.sqrt(x_dist**2 + y_dist**2)
+
+def move_Y(offset):
+    pass
+def move_X(offset):
+    pass
+
 
 main()
