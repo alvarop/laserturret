@@ -1,8 +1,9 @@
 import io
 import argparse
 import cv2
-import numpy as np
+import math
 import sys
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("serial", type=str, default='/dev/ttyACM0') 
@@ -77,7 +78,7 @@ def main():
         #Find circles
         max_radius = 40
         min_radius = 2
-        circles = cv2.HoughCircles(frame,cv2.cv.CV_HOUGH_GRADIENT, 1, 10,
+        circles = cv2.HoughCircles(frame, cv2.cv.CV_HOUGH_GRADIENT, 1, 10,
                         param1=100, param2=30, minRadius=min_radius,maxRadius=max_radius)
 
         cv2.imshow('frame', frame)
@@ -98,29 +99,58 @@ def main():
             track_circle_dist = 1000
 
         closest_circle = None
-        close_circle_dist = None
+        close_circle_dist = sys.maxint
         #For some reason, circles is nested.
-        for c in circles[0]:
+        if circles is not None:
+            for c in circles[0]:
             
-            x, y, radius = c.tolist()
+                x, y, _ = c.tolist()
 
-            dist_from_center = distance_from_center(x-x_center,y-y_center) 
-            if dist_from_center < close_circle_dist:
-                close_circle_dist = dist_from_center
-                closest_circle = c
+                dist_from_center = distance_from_center(x-x_center,y-y_center) 
+                if dist_from_center < close_circle_dist:
+                    close_circle_dist = dist_from_center
+                    closest_circle = c
 
         track_circle_dist = 0
         #Conditionals for moving tracking circle
-        if time_on_target != 0 and track_circle_dist < close_circle_dist:
+        if time_before_relock != 0 and track_circle_dist < close_circle_dist:
             circles = None
 
-        elif time_on_target != 0 and track_circle_dist > close_circle_dist:
+        elif time_before_relock != 0 and track_circle_dist > close_circle_dist:
             track_circle_dist = close_circle_dist * 1.4
-            time_on_target = 20
-        elif time_on_target == 0:
+            time_before_relock = 20
+        elif time_before_relock == 0:
             track_circle_dist = close_circle_dist * 1.4
-            time_on_target = 10
+            time_before_relock = 10
+       
+        if track_circle_dist < 20:
+            track_circle_dist = 20
+
+        if circles != None:
+        
+            x, y, radius = closest_circle
+            print("x: %s, y: %s, deviation: %s" % (x, y, x-x_center))
+
+            if is_in_circle(x, y, x_center, y_center, radius):
+                CONTROLFILE.write(u"laser 1\n")
+                print("Shoot!")
+
+                #Will shoot for the next 10 frames.
+                time_on_target = 10
+            else:
+                if time_on_target == 0:
+                    CONTROLFILE.write(u"laser 0\n")
+
+def is_in_circle(x1, y1, x2, y2, radius):            
            
+    x_diff = x1-x2
+    y_diff = y1-y2
+    
+    #Want to decrease the acceptable radius length so that the frame will shift
+    #more towards the circle and make the laser more accurate.
+    return math.sqrt(x_diff**2 + y_diff**2) < radius/2
+
+
 def distance_from_center(x_dist, y_dist):
     '''Euclidean distance from center of a frame.'''
     return math.sqrt(x_dist**2 + y_dist**2)
