@@ -82,13 +82,14 @@ def main():
 
         cv2.imshow('frame', frame)
 
-        #If light in fram flickers, time to remain on the target
+        #If light in frame flickers, time to remain on the target
         if time_on_target > 0:
             time_on_target -= 1
 
+        track_circle_dist = None
         #If we are currently tracking a target, draw it.
         if time_before_relock > 0 and track_circle_dist < 1000:
-            cv2.circle(frame, (x_center, y_center), track_circle_distance, (128, 128, 128))
+            cv2.circle(frame, (x_center, y_center), track_circle_dist, (128, 128, 128))
             
             #Decrement to tell us when we should give up and find a new target.
             time_before_relock -= 1
@@ -96,7 +97,32 @@ def main():
             #Reset to large circle and begin search again.
             track_circle_dist = 1000
 
-    
+        closest_circle = None
+        close_circle_dist = None
+        #For some reason, circles is nested.
+        for c in circles[0]:
+            
+            x, y, radius = c.tolist()
+
+            dist_from_center = distance_from_center(x-x_center,y-y_center) 
+            if dist_from_center < close_circle_dist:
+                close_circle_dist = dist_from_center
+                closest_circle = c
+
+        track_circle_dist = 0
+        #Conditionals for moving tracking circle
+        if time_on_target != 0 and track_circle_dist < close_circle_dist:
+            circles = None
+
+        elif time_on_target != 0 and track_circle_dist > close_circle_dist:
+            track_circle_dist = close_circle_dist * 1.4
+            time_on_target = 20
+        elif time_on_target == 0:
+            track_circle_dist = close_circle_dist * 1.4
+            time_on_target = 10
+           
+def distance_from_center(x_dist, y_dist):
+    '''Euclidean distance from center of a frame.'''
+    return math.sqrt(x_dist**2 + y_dist**2)
+
 main()
-
-
