@@ -81,8 +81,6 @@ def main():
         circles = cv2.HoughCircles(frame, cv2.cv.CV_HOUGH_GRADIENT, 1, 10,
                         param1=100, param2=30, minRadius=min_radius,maxRadius=max_radius)
 
-        cv2.imshow('frame', frame)
-
         #If light in frame flickers, time to remain on the target
         if time_on_target > 0:
             time_on_target -= 1
@@ -153,13 +151,16 @@ def main():
                 else:
                     move_X(0)
 
-            cv2.circle(frame, (x, y), radius, (128, 128, 128))
-            cv2.circle(frame, (x, y), 2, (128, 128, 128))
+            cv2.circle(frame, (x, y), radius, (0, 0, 0))
+            cv2.circle(frame, (x, y), 2, (0, 0, 0))
             
         else:
             
             CONTROLFILE.write(u"qik 0 move 0\n")
             CONTROLFILE.write(u"qik 1 move 0\n")
+        
+        cv2.imshow('frame', frame)
+
 
     CONTROLFILE.write(u"laser 0\n")
 
