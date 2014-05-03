@@ -31,7 +31,7 @@ def move_x(deviation):
     elif velocity > 0 and velocity < MIN_VELOCITY:
         velocity  = MIN_VELOCITY
 
-    CONTROLFILE.write("qik 0 mov %s \n" % velocity)
+    CONTROLFILE.write(u"qik 0 mov %s \n" % velocity)
     print("qik 0 mov %s \n" % velocity)
 
 def move_y(deviation):
@@ -46,7 +46,7 @@ def move_y(deviation):
     elif velocity > 0 and velocity < MIN_VELOCITY:
         velocity  = MIN_VELOCITY
 
-    CONTROLFILE.write("qik 1 mov %s \n" % velocity)
+    CONTROLFILE.write(u"qik 1 mov %s \n" % velocity)
     print("qik 1 mov %s \n" % velocity)
 
 def main():
@@ -69,17 +69,28 @@ def main():
         time_on_target = 0
         time_before_relock = 0
 
+        #Convert to grayscale
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+
+        #Convert to binary black/white
+        frame = cv2.adaptiveThreshold(frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
+                       cv2.THRESH_BINARY, 11, 2)
+        # _, frame = cv2.threshold(frame, 127, 255, cv2.THRESH_BINARY_INV)
+        #frame = cv2.adaptiveThreshold(frame, 255, cv2.ADAPTIVE_THRESH_MEAN_C,\
+        #                cv2.THRESH_BINARY, 11, 2)
+
+
         #Blur image to reduce noice
         cv2.medianBlur(frame, 5, frame)
 
-        #Convert to grayscale
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
         #Find circles
-        max_radius = 40
-        min_radius = 2
-        circles = cv2.HoughCircles(frame, cv2.cv.CV_HOUGH_GRADIENT, 1, 10,
-                        param1=100, param2=30, minRadius=min_radius,maxRadius=max_radius)
+        max_radius = 25
+        min_radius = 5
+        
+        circles = cv2.HoughCircles(frame, cv2.cv.CV_HOUGH_GRADIENT, 2, 100,
+                        minRadius=min_radius,maxRadius=max_radius)
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
 
         #If light in frame flickers, time to remain on the target
         if time_on_target > 0:
@@ -101,22 +112,25 @@ def main():
         #For some reason, circles is nested.
         if circles is not None:
             for c in circles[0]:
-            
-                x, y, _ = c.tolist()
+           
+                x, y, radius = c.tolist()
 
                 dist_from_center = distance_from_center(x-x_center,y-y_center) 
                 if dist_from_center < close_circle_dist:
                     close_circle_dist = dist_from_center
                     closest_circle = c
+            
+            cv2.circle(frame, (int(x), int(y)), int(radius), (255, 51, 51), thickness=10)
 
         track_circle_dist = 0
         #Conditionals for moving tracking circle
         if time_before_relock != 0 and track_circle_dist < close_circle_dist:
             circles = None
-
+        
         elif time_before_relock != 0 and track_circle_dist > close_circle_dist:
             track_circle_dist = close_circle_dist * 1.4
             time_before_relock = 20
+        
         elif time_before_relock == 0:
             track_circle_dist = close_circle_dist * 1.4
             time_before_relock = 10
@@ -142,14 +156,14 @@ def main():
 
                 #Should move if not centered.
                 if x < (x_center - radius/2) or x > (x_center + radius/2):
-                    move_X(x_center-x)
+                    move_x(x_center-x)
                 else:
-                    move_X(0)
+                    move_x(0)
 
                 if y < (y_center - radius/2) or y > (y_center + radius/2):
-                    move_Y(y_center-y)
+                    move_y(y_center-y)
                 else:
-                    move_X(0)
+                    move_x(0)
 
             cv2.circle(frame, (x, y), radius, (0, 0, 0))
             cv2.circle(frame, (x, y), 2, (0, 0, 0))
@@ -184,11 +198,5 @@ def is_in_circle(x1, y1, x2, y2, radius):
 def distance_from_center(x_dist, y_dist):
     '''Euclidean distance from center of a frame.'''
     return math.sqrt(x_dist**2 + y_dist**2)
-
-def move_Y(offset):
-    pass
-def move_X(offset):
-    pass
-
 
 main()
