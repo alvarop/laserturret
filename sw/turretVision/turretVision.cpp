@@ -18,11 +18,13 @@ static float yCenter;
 #define WIDTH (640)
 #define HEIGHT (480)
 
-#define MIN_VELOCITY (11)
+static int minVelocityX = 11;
+static int minVelocityY = 11;
+
 
 // Circle detection sizes
 // TODO - make command-line arguments
-#define MIN_RADIUS (2)
+#define MIN_RADIUS (0)
 #define MAX_RADIUS (40)
 
 void moveX(int32_t deviation) {
@@ -40,10 +42,10 @@ void moveX(int32_t deviation) {
 	
 	velocity -= fPos * 200;
 
-	if((velocity < 0) && (velocity > -MIN_VELOCITY)) {
-		velocity = -MIN_VELOCITY;
-	} else if((velocity > 0) && (velocity < MIN_VELOCITY)) {
-		velocity = MIN_VELOCITY;
+	if((velocity < 0) && (velocity > -minVelocityX)) {
+		velocity = -minVelocityX;
+	} else if((velocity > 0) && (velocity < minVelocityX)) {
+		velocity = minVelocityX;
 	}
 	
 	controlfile << "qik 0 mov " << velocity << "\n" << endl;
@@ -64,10 +66,10 @@ void moveY(int32_t deviation) {
 		
 	velocity -= fPos * 200;
 
-	if((velocity < 0) && (velocity > -MIN_VELOCITY)) {
-		velocity = -MIN_VELOCITY;
-	} else if((velocity > 0) && (velocity < MIN_VELOCITY)) {
-		velocity = MIN_VELOCITY;
+	if((velocity < 0) && (velocity > -minVelocityY)) {
+		velocity = -minVelocityY;
+	} else if((velocity > 0) && (velocity < minVelocityY)) {
+		velocity = minVelocityY;
 	}
 
 	controlfile << "qik 1 mov " << velocity << "\n" << endl;
@@ -87,8 +89,15 @@ bool isInCircle(float x, float y, float cirX, float cirY, float radius) {
 	return (sqrt(xDis * xDis + yDis * yDis) < radius);
 }
 
+#define OFFSET_MAX	(25)
+
 int main(int argc, char ** argv) { 
-	
+	int alpha = 1;
+	int beta = 0;
+
+	int xOffset = OFFSET_MAX;
+	int yOffset = OFFSET_MAX;
+
 	if(argc < 3) {
 		cout << "Usage: <serial device (/dev/ttyACM0)> <camera id (0,1,2...)> [xOffset yOffset]" << endl;
 		return -1;
@@ -121,7 +130,18 @@ int main(int argc, char ** argv) {
 		return -1;
 	}
 
+	namedWindow("Frame");
 	namedWindow("Video");
+	namedWindow("Control", CV_WINDOW_AUTOSIZE);
+
+	cvCreateTrackbar("minVelocityX", "Control", &minVelocityX, OFFSET_MAX);
+	cvCreateTrackbar("minVelocityY", "Control", &minVelocityY, OFFSET_MAX);
+
+	cvCreateTrackbar("alpha", "Control", &alpha, 32);
+	cvCreateTrackbar("beta", "Control", &beta, 2048);
+
+	cvCreateTrackbar("xOffset", "Control", &xOffset, OFFSET_MAX * 2);
+	cvCreateTrackbar("yOffset", "Control", &yOffset, OFFSET_MAX * 2);
 
 	while(char(waitKey(1)) != 'q' && cap.isOpened()) {
 		static uint32_t shooting = 0;
@@ -132,7 +152,11 @@ int main(int argc, char ** argv) {
 		static float trackingCircleDistance = numeric_limits<float>::max();
 
 		Mat frame;
+		Mat colors[3];
 		Mat cimg;
+
+		xCenter = WIDTH/2 + xOffset - OFFSET_MAX;
+		yCenter = HEIGHT/2 + yOffset - OFFSET_MAX;
 
 		vector<Vec3f> circles;
 
@@ -144,17 +168,24 @@ int main(int argc, char ** argv) {
 		}
 
 		// Increase contrast and decrease brightness
-		// TODO - make this configurable
-		frame.convertTo(frame, -1, 10, -1000);
+		frame.convertTo(frame, -1, alpha, -beta);
 
 		// Blur image for transform
-		medianBlur(frame, frame, 5);
+		//medianBlur(frame, frame, blur);
+
+		imshow("Frame", frame);
+
+		cvtColor(frame, frame, CV_BGR2YCrCb);
+
+		split(frame,colors);
+
+		cimg = colors[2];
 
 		// Convert to grayscale
-		cvtColor(frame, cimg, CV_BGR2GRAY);
+		//cvtColor(frame, cimg, CV_BGR2GRAY);
 
 		// Find some circles!
-		HoughCircles(cimg, circles, CV_HOUGH_GRADIENT, 1, 10,
+		HoughCircles(cimg, circles, CV_HOUGH_GRADIENT, 2, 32.0,
 					 100, 30, MIN_RADIUS, MAX_RADIUS); // change the last two parameters
 									// (min_radius & max_radius) to detect larger circles
 
@@ -202,7 +233,7 @@ int main(int argc, char ** argv) {
 			
 			cout << "x:" << c[0] << " y:" << c[1] << " deviation: " << (xCenter - c[0]) << endl;
 			
-			if(isInCircle(c[0], c[1], xCenter, yCenter, c[2]/2)) {	
+			if(isInCircle(c[0], c[1], xCenter, yCenter, c[2]/1.5)) {	
 				controlfile << "laser 1\n" << endl;
 				cout << "shoot!" << endl;
 				
@@ -213,7 +244,7 @@ int main(int argc, char ** argv) {
 				}
 				
 				// Only move if not centered
-				if((c[0] < (xCenter - c[2]/2)) || (c[0] > (xCenter + c[2]/2))) {
+				if((c[0] < (xCenter - c[2]/1.5)) || (c[0] > (xCenter + c[2]/1.5))) {
 					moveX(xCenter - c[0]);
 				} else {
 					// Stop moving (only for gearmotors!)
@@ -221,7 +252,7 @@ int main(int argc, char ** argv) {
 				}
 				
 				// Only move if not centered
-				if((c[1] < (yCenter - c[2]/2)) || (c[1] > (yCenter + c[2]/2))) {
+				if((c[1] < (yCenter - c[2]/1.5)) || (c[1] > (yCenter + c[2]/1.5))) {
 					moveY((yCenter - c[1]));
 				} else {
 					moveY(0);
