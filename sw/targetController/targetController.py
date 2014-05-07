@@ -78,12 +78,18 @@ def processLine(line):
 			if targetID in targets:
 				targetLock.acquire()
 				targets[targetID] = False
-				currentTarget = randint(0, len(targets) - 1)
+				while True:
+					currentTarget = randint(0, len(targets) - 1)
+					if currentTarget in targets:
+						break 
 				targets[currentTarget] = True
 				targetLock.release()
 				writeThread.write("set " + str(currentTarget) + " 1\n")
 		elif args[1] == "started":
-			currentTarget = randint(0, len(targets) - 1)
+			while True:
+					currentTarget = randint(0, len(targets) - 1)
+					if currentTarget in targets:
+						break 
 			writeThread.write("set " + str(currentTarget) + " 1\n")
 			targetLock.acquire()
 			targets[currentTarget] = True
