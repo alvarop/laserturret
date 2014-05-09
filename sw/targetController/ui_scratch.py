@@ -31,7 +31,9 @@ player.setTimeout(1000, change_text)
 #Every .2 s, will change.
 #player.setInterval(200, change_text)
 
-foo = avg.CircleNode(r=10, pos=(200,230), parent=rootNode)
+foo = avg.CircleNode(r=10, pos=(200,230),
+            fillcolor="0000FF", fillopacity=100,
+            parent=rootNode)
 
 foo.color = "FF8000"
 
