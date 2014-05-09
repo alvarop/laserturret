@@ -7,6 +7,26 @@ import Queue
 import signal
 from datetime import datetime
 from random import randint
+from libavg import avg
+
+player = avg.Player.get()
+canvas = player.createMainCanvas(size=(640, 480))
+rootNode = canvas.getRootNode()
+SCORE = 0
+
+#I realize that I have no clue if this system is set up for a single set of targets
+#or multiple. If there's a separate dictionary of target items, can update the player
+#score too.
+def change_score():
+    comp_score.text = str(SCORE)
+
+comp_score = avg.WordsNode(pos=(50,50), font="arial", text="0",
+    parent=rootNode)
+player_score = avg.WordsNode(pos=(300,50), font="arial", text="0",
+    parent=rootNode)
+player.setOnFrameHandler(change_score)
+
+player.play()
 
 def signal_handler(signal, frame):
 	print "exiting"
@@ -75,7 +95,11 @@ def processLine(line):
 		elif args[1] == "hit":
 			targetID = int(args[0])
 			print "Target", targetID, "hit!"
-			if targetID in targets:
+			
+            #Adding 1 to our hit counter
+            SCORE += 1
+
+            if targetID in targets:
 				targetLock.acquire()
 				targets[targetID] = False
 				while True:
@@ -174,5 +198,6 @@ endTime = datetime.now()
 totalTime = endTime - startTime
 
 print "Time: ", (totalTime.seconds + totalTime.microseconds / 1000000.0)
+
 
 sys.exit(0)
