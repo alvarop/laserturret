@@ -18,7 +18,7 @@ canvas = player.createMainCanvas(size=(640,480))
 rootNode = canvas.getRootNode()
 
 bar = avg.WordsNode(pos=(10,10), font="arial", 
-    text="Hello World", parent=rootNode)
+    text="Hello World", parent=rootNode, fontsize=72)
 word = avg.WordsNode(text='Hello libavg', pos=(10,30),
     parent=rootNode)
 

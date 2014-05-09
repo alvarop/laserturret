@@ -21,9 +21,9 @@ def change_score():
     comp_score.text = str(SCORE)
 
 comp_score = avg.WordsNode(pos=(50,50), font="arial", text="0",
-    parent=rootNode)
+    parent=rootNode, fontsize=120)
 player_score = avg.WordsNode(pos=(300,50), font="arial", text="0",
-    parent=rootNode)
+    parent=rootNode, fontsize=120)
 player.setOnFrameHandler(change_score)
 
 player.play()
