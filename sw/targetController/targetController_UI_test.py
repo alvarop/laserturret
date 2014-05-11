@@ -18,12 +18,12 @@ SCORE = 0
 #or multiple. If there's a separate dictionary of target items, can update the player
 #score too.
 def change_score():
-    comp_score.text = str(SCORE)
+	comp_score.text = str(SCORE)
 
 comp_score = avg.WordsNode(pos=(50,50), font="arial", text="0",
-    parent=rootNode, fontsize=120)
+	parent=rootNode, fontsize=120)
 player_score = avg.WordsNode(pos=(300,50), font="arial", text="0",
-    parent=rootNode, fontsize=120)
+	parent=rootNode, fontsize=120)
 player.setOnFrameHandler(change_score)
 
 player.play()
@@ -96,10 +96,10 @@ def processLine(line):
 			targetID = int(args[0])
 			print "Target", targetID, "hit!"
 			
-            #Adding 1 to our hit counter
-            SCORE += 1
+			#Adding 1 to our hit counter
+			SCORE += 1
 
-            if targetID in targets:
+			if targetID in targets:
 				targetLock.acquire()
 				targets[targetID] = False
 				while True:
