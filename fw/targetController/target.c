@@ -29,7 +29,7 @@ static target_t targets[TOTAL_TARGETS] = {
 
 	{GPIOC,	1,	ADC1,	GPIOB,	12,	11,	0, 0, 0, 2048, 0, 4096},
 	{GPIOC,	2,	ADC1,	GPIOB,	13,	12,	0, 0, 0, 2048, 0, 4096},
-	{GPIOC,	4,	ADC1,	GPIOB,	14,	13,	0, 0, 0, 2048, 0, 4096},
+	{GPIOC,	4,	ADC1,	GPIOB,	14,	14,	0, 0, 0, 2048, 0, 4096},
 	{GPIOC,	5,	ADC1,	GPIOC,	6,	15,	0, 0, 0, 2048, 0, 4096},
 	
 };
