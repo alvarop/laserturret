@@ -157,6 +157,14 @@ writeThread.start()
 # Start scan for connected targets
 writeThread.write("init\n")
 
+# read in a config file
+if len(sys.argv) > 2:
+	configFile = sys.argv[2].strip()
+	config = open(configFile, 'r')
+	# read config lines
+	for line in config:
+		writeThread.write(line.strip() + "\n")
+
 # Enable targets and wait for hits
 writeThread.write("start\n")
 
