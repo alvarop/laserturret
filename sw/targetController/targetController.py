@@ -39,7 +39,7 @@ class ShootingGallery():
 		self.write("init\n")
 
 		# Enable targets and wait for hits
-		galleries[0].writeThread.write("start\n")
+		self.write("start\n")
 
 		while not self.started:
 			eventLock.wait(0.1)
@@ -52,7 +52,7 @@ class ShootingGallery():
 		config = open(configFile, 'r')
 		# read config lines
 		for line in config:
-			galleries[0].writeThread.write(line.strip() + "\n")
+			self.writeThread.write(line.strip() + "\n")
 
 	def write(self, command):
 		self.writeThread.write(command)
@@ -203,7 +203,6 @@ galleries[0].start()
 # read in a config file
 if len(sys.argv) > 2:
 	galleries[0].configFromFile(sys.argv[2].strip())
-
 
 startTime = datetime.now()
 
