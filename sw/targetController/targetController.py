@@ -19,6 +19,16 @@ class GalleryController():
 		self.done = 0
 		self.currentTarget = 0
 		self.galleries = {}
+		self.maxScore = 10
+
+	def start(self):
+		# select first target
+		while True:
+			self.currentTarget = randint(0, len(self.galleries[0].targets) - 1)
+			if self.currentTarget in self.galleries[0].targets:
+				break
+
+		self.enableAll(self.currentTarget)
 
 	def run(self):
 		startTime = datetime.now()
@@ -45,17 +55,12 @@ class GalleryController():
 	# If they're all hit, exit
 	#
 	def checkTargets(self):
-		if(len(self.galleries[0].targets) > 0):
-			notDone = 0
-
-			for key in self.galleries[0].targets.keys():
-				if self.galleries[0].targets[key].on == True:
-					notDone = 1
-
-			if notDone == 0:
+		for gallery in self.galleries:
+			if self.galleries[gallery].score == self.maxScore:
 				self.done = 1
-				print "All targets hit!"
-
+				print "Player ", gallery, "won!"
+				self.disableAll(self.currentTarget)
+		
 	#
 	# Process lines coming from targetController via USB-serial link
 	#
@@ -70,26 +75,31 @@ class GalleryController():
 				self.galleries[source].targets[targetID].disable()
 			elif args[1] == "hit":
 				targetID = int(args[0])
-				print "Target", targetID, "hit!"
+				print "Target(", source,")", targetID, "hit!"
+				self.galleries[source].score += 1
 				if targetID in self.galleries[source].targets:
 					self.galleries[source].targets[targetID].hit()
+					self.disableAll(targetID)
 					while True:
-						currentTarget = randint(0, len(self.galleries[source].targets) - 1)
-						if currentTarget in self.galleries[source].targets:
+						self.currentTarget = randint(0, len(self.galleries[source].targets) - 1)
+						if self.currentTarget in self.galleries[source].targets:
 							break 
-					self.galleries[source].targets[currentTarget].enable()
+					self.enableAll(self.currentTarget)
 			elif args[1] == "started":
 				self.galleries[source].started = True
-				while True:
-					currentTarget = randint(0, len(self.galleries[source].targets) - 1)
-					if currentTarget in self.galleries[source].targets:
-						break
-				self.galleries[source].targets[currentTarget].enable()
 			else:
 				print "controller: ", line,
 
 		# Something happened, let the main thread run
 		self.eventLock.set()
+
+	def disableAll(self, id):
+		for gallery in self.galleries:
+			self.galleries[gallery].targets[id].disable()
+
+	def enableAll(self, id):
+		for gallery in self.galleries:
+			self.galleries[gallery].targets[id].enable()
 
 class ShootingGallery():
 	def __init__(self, streamFileName, id):
@@ -97,6 +107,7 @@ class ShootingGallery():
 
 		self.id = id
 		self.started = False
+		self.score = 0
 
 		# Start readThread as daemon so it will automatically close on program exit
 		self.readThread = serialReadThread(stream, self.id)
@@ -222,6 +233,8 @@ controller.addGallery(sys.argv[1])
 
 if len(sys.argv) > 2:
 	controller.addGallery(sys.argv[2])
+
+controller.start()
 
 # read in a config file
 # if len(sys.argv) > 2:
