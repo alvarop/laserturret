@@ -10,6 +10,7 @@ import time
 from datetime import datetime
 from random import randint
 from libavg import avg
+from time import gmtime, strftime
 
 def signal_handler(signal, frame):
     print "exiting"
@@ -29,12 +30,18 @@ class GalleryUI():
                 self.controller.disableAll(self.controller.currentTarget)
                 
                 gallery.victoryDance()
-
                 self.controller.done = 1
-
                 self.win_text.text = ("Player %s won!" % gallery.id)
-                gallery.score = "-"
-                
+
+                #Want to make it so they no longer match and win condition will stop triggering.
+                self.controller.maxScore = -1
+            elif self.controller.maxScore == -1:
+                pass
+            else:
+                time_passed = datetime.now() - self.start_time
+                timer = time_passed.seconds + time_passed.microseconds / 1000000.0
+                self.timer_text.text = str(timer)
+ 
 
         #Check for left gallery
         #TODO Don't always assume there are two of these that's dumb.
@@ -49,11 +56,22 @@ class GalleryUI():
         rootNode = canvas.getRootNode()
        
         self.left_score = avg.WordsNode(pos=(10,10), font="arial", text="-",
-                                    parent=rootNode, fontsize=72)
+                                    parent=rootNode, fontsize=100)
         self.right_score = avg.WordsNode(pos=(400,10), font="arial", text="-",
-                                    parent=rootNode, fontsize=72)
+                                    parent=rootNode, fontsize=100)
         self.win_text = avg.WordsNode(pos=(20,300), font="arial", text="",
                                     parent=rootNode, fontsize=72)
+        self.timer_text = avg.WordsNode(pos=(20,400), font="arial", text="",
+                                    parent=rootNode, fontsize=72)
+    
+        '''endTime = datetime.now()
+
+        totalTime = endTime - startTime
+
+        print "Time: ", (totalTime.seconds + totalTime.microseconds / 1000000.0)
+        '''
+        self.start_time = datetime.now()
+
 
         self.controller = GalleryController()
         self.controller.addGallery(sys.argv[1])
@@ -71,7 +89,7 @@ class GalleryController():
         self.done = 0
         self.currentTarget = 0
         self.galleries = []
-        self.maxScore = 2
+        self.maxScore = 10
 
     def start(self):
         # select first target
