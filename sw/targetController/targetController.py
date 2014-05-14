@@ -17,6 +17,7 @@ class Target():
 	def __init__(self, targetID):
 		self.id = targetID
 		self.on = False
+		self.lock = threading.Lock()
 
 		writeThread.write("set " + str(self.id) + " 0\n")
 
@@ -24,12 +25,16 @@ class Target():
 		self.on = False
 
 	def enable(self):
+		self.lock.acquire()
 		self.on = True
 		writeThread.write("set " + str(self.id) + " 1\n")
+		self.lock.release()
 
 	def disable(self):
+		self.lock.acquire()
 		self.on = False
 		writeThread.write("set " + str(self.id) + " 0\n")
+		self.lock.release()
 
 #
 # Read serial stream and add lines to shared queue
@@ -44,7 +49,7 @@ class serialReadThread(threading.Thread):
 		while self.running:
 			line = self.stream.readline(100);
 			if line:
-				processLine(line)
+				processLine(line, 0)
 
 #
 # Write serial stream and add lines to shared queue
@@ -80,7 +85,7 @@ class serialWriteThread(threading.Thread):
 #
 # Process lines coming from targetController via USB-serial link
 #
-def processLine(line):
+def processLine(line, source):
 	global targets
 	args = line.split()
 
@@ -120,11 +125,9 @@ def checkTargets():
 	if(len(targets) > 0):
 		notDone = 0
 
-		targetLock.acquire()
 		for key in targets.keys():
 			if targets[key] == True:
 				notDone = 1
-		targetLock.release()
 
 		if notDone == 0:
 			global done
@@ -141,8 +144,6 @@ if not len(sys.argv) > 1:
 signal.signal(signal.SIGINT, signal_handler)
 
 print "Press Ctrl + C to exit"
-
-targetLock = threading.Lock()
 
 eventLock = threading.Event() # Used to block main thread while waiting for events
 
