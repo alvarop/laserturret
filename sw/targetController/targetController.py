@@ -28,9 +28,9 @@ class GalleryController():
 			self.eventLock.clear()
 
 			self.checkTargets()
-		
+
 		endTime = datetime.now()
-		
+
 		totalTime = endTime - startTime
 
 		print "Time: ", (totalTime.seconds + totalTime.microseconds / 1000000.0)
@@ -220,9 +220,12 @@ print "Press Ctrl + C to exit"
 controller = GalleryController()
 controller.addGallery(sys.argv[1])
 
-# read in a config file
 if len(sys.argv) > 2:
-	controller.galleries[0].configFromFile(sys.argv[2].strip())
+	controller.addGallery(sys.argv[2])
+
+# read in a config file
+# if len(sys.argv) > 2:
+# 	controller.galleries[0].configFromFile(sys.argv[2].strip())
 
 # Run until done
 controller.run()
