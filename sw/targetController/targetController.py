@@ -31,7 +31,6 @@ class Target():
 		self.on = False
 		writeThread.write("set " + str(self.id) + " 0\n")
 
-
 #
 # Read serial stream and add lines to shared queue
 #
@@ -56,23 +55,27 @@ class serialWriteThread(threading.Thread):
 		self.stream = outStream
 		self.running = 1
 
+		self.outQueueLock = threading.Lock()
+		self.outQueue = Queue.Queue()
+		self.outDataAvailable = threading.Event() # Used to block write thread until data is available
+
 	def run(self):
 		while self.running:
 
-			if not outQueue.empty():
-				outQueueLock.acquire()
-				line = unicode(outQueue.get())
+			if not self.outQueue.empty():
+				self.outQueueLock.acquire()
+				line = unicode(self.outQueue.get())
 				self.stream.write(str(line))
-				outQueueLock.release()
+				self.outQueueLock.release()
 			else:
-				outDataAvailable.wait()
-				outDataAvailable.clear()
+				self.outDataAvailable.wait()
+				self.outDataAvailable.clear()
 
 	def write(self, line):
-		outQueueLock.acquire()
-		outQueue.put(line)
-		outQueueLock.release()
-		outDataAvailable.set()
+		self.outQueueLock.acquire()
+		self.outQueue.put(line)
+		self.outQueueLock.release()
+		self.outDataAvailable.set()
 
 #
 # Process lines coming from targetController via USB-serial link
@@ -138,11 +141,6 @@ if not len(sys.argv) > 1:
 signal.signal(signal.SIGINT, signal_handler)
 
 print "Press Ctrl + C to exit"
-
-outQueueLock = threading.Lock()
-outQueue = Queue.Queue()
-
-outDataAvailable = threading.Event() # Used to block write thread until data is available
 
 targetLock = threading.Lock()
 
