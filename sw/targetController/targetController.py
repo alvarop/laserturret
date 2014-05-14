@@ -6,6 +6,7 @@ import threading
 import Queue
 import signal
 import serial
+import time
 from datetime import datetime
 from random import randint
 
@@ -57,9 +58,13 @@ class GalleryController():
 	def checkTargets(self):
 		for gallery in self.galleries:
 			if self.galleries[gallery].score == self.maxScore:
-				self.done = 1
 				print "Player ", gallery, "won!"
 				self.disableAll(self.currentTarget)
+				
+				self.galleries[gallery].victoryDance()
+
+				self.done = 1
+
 		
 	#
 	# Process lines coming from targetController via USB-serial link
@@ -145,6 +150,15 @@ class ShootingGallery():
 
 	def write(self, command):
 		self.writeThread.write(command)
+
+	def victoryDance(self):
+		# TODO - make awesomer
+		for target in self.targets:
+			self.targets[target].enable()
+			time.sleep(0.05)
+			self.targets[target].disable()
+
+		time.sleep(0.05)
 
 class Target(object):
 	def __init__(self, targetID, gallery):
