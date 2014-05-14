@@ -13,6 +13,25 @@ def signal_handler(signal, frame):
 	print "exiting"
 	sys.exit(0)
 
+class Target():
+	def __init__(self, targetID):
+		self.id = targetID
+		self.on = False
+
+		writeThread.write("set " + str(self.id) + " 0\n")
+
+	def hit(self):
+		self.on = False
+
+	def enable(self):
+		self.on = True
+		writeThread.write("set " + str(self.id) + " 1\n")
+
+	def disable(self):
+		self.on = False
+		writeThread.write("set " + str(self.id) + " 0\n")
+
+
 #
 # Read serial stream and add lines to shared queue
 #
@@ -66,33 +85,24 @@ def processLine(line):
 		if args[1] == "connected":
 			targetID = int(args[0])
 			print "Target", targetID , "is connected"
-			targetLock.acquire()
-			targets[targetID] = True
-			targetLock.release()
-			writeThread.write("set " + str(targetID) + " 0\n")
+			targets[targetID] = Target(targetID)
+			targets[targetID].disable()
 		elif args[1] == "hit":
 			targetID = int(args[0])
 			print "Target", targetID, "hit!"
 			if targetID in targets:
-				targetLock.acquire()
-				targets[targetID] = False
+				targets[targetID].hit()
 				while True:
 					currentTarget = randint(0, len(targets) - 1)
 					if currentTarget in targets:
 						break 
-				targets[currentTarget] = True
-				targetLock.release()
-				writeThread.write("set " + str(currentTarget) + " 1\n")
+				targets[currentTarget].enable()
 		elif args[1] == "started":
 			while True:
-					currentTarget = randint(0, len(targets) - 1)
-					if currentTarget in targets:
-						break 
-			writeThread.write("set " + str(currentTarget) + " 1\n")
-			targetLock.acquire()
-			targets[currentTarget] = True
-			targetLock.release()
-
+				currentTarget = randint(0, len(targets) - 1)
+				if currentTarget in targets:
+					break
+			targets[currentTarget].enable()
 		else:
 			print "controller: ", line,
 
@@ -141,6 +151,7 @@ eventLock = threading.Event() # Used to block main thread while waiting for even
 targets = {}
 done = 0
 currentTarget = 0
+started = False
 
 stream = serial.Serial(sys.argv[1])
 
@@ -167,6 +178,10 @@ if len(sys.argv) > 2:
 
 # Enable targets and wait for hits
 writeThread.write("start\n")
+
+while not started:
+	eventLock.wait(0.1)
+	eventLock.clear()
 
 startTime = datetime.now()
 
