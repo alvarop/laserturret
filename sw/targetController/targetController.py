@@ -5,6 +5,7 @@ import io
 import threading
 import Queue
 import signal
+import serial
 from datetime import datetime
 from random import randint
 
@@ -16,28 +17,25 @@ def signal_handler(signal, frame):
 # Read serial stream and add lines to shared queue
 #
 class serialReadThread(threading.Thread):
-	def __init__(self,device):
+	def __init__(self, inStream):
 		super(serialReadThread, self).__init__()
-		self.stream = io.open(device, 'r')
+		self.stream = inStream
 		self.running = 1
-		print "opening ", device
-		# TODO - add check in case file couldn't be openend
 
 	def run(self):
 		while self.running:
-			line = self.stream.readline();
-			processLine(line)
+			line = self.stream.readline(100);
+			if line:
+				processLine(line)
 
 #
 # Write serial stream and add lines to shared queue
 #
 class serialWriteThread(threading.Thread):
-	def __init__(self,device):
+	def __init__(self, outStream):
 		super(serialWriteThread, self).__init__()
-		self.stream = io.open(device, 'w')
+		self.stream = outStream
 		self.running = 1
-		print "opening ", device
-		# TODO - add check in case file couldn't be openend
 
 	def run(self):
 		while self.running:
@@ -45,7 +43,7 @@ class serialWriteThread(threading.Thread):
 			if not outQueue.empty():
 				outQueueLock.acquire()
 				line = unicode(outQueue.get())
-				self.stream.write(line)
+				self.stream.write(str(line))
 				outQueueLock.release()
 			else:
 				outDataAvailable.wait()
@@ -144,13 +142,15 @@ targets = {}
 done = 0
 currentTarget = 0
 
+stream = serial.Serial(sys.argv[1])
+
 # Start readThread as daemon so it will automatically close on program exit
-readThread = serialReadThread(sys.argv[1])
+readThread = serialReadThread(stream)
 readThread.daemon = True
 readThread.start()
 
 # Start writeThread as daemon so it will automatically close on program exit
-writeThread = serialWriteThread(sys.argv[1])
+writeThread = serialWriteThread(stream)
 writeThread.daemon = True
 writeThread.start()
 
