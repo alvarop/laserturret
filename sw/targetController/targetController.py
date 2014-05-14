@@ -23,7 +23,14 @@ class GalleryUI():
 
     def run(self):
         self.controller.run()
-    
+
+        #Check for left gallery
+        #TODO Don't always assume there are two of these that's dumb.
+        self.left_score.text = str(self.controller.galleries[0].score)
+        #self.right_score.text = str(self.controller.galleries[1].score)
+
+
+
     def __init__(self):
         self.player = avg.Player.get()
         canvas = self.player.createMainCanvas(size=(640,480))
@@ -42,17 +49,6 @@ class GalleryUI():
             self.controller.galleries[0].configFromFile(sys.argv[2].strip())
 
         self.player.setOnFrameHandler(self.run)
-    
-    #Which gallery we're talking about, left will always be the one passed in as param
-    #0, right will always be 1
-    def scored(self, pos):
-        if pos == 0:
-            curr_score = int(self.left_score.text)
-            self.left_score.text = str(curr_score + 1)
-        else:
-            curr_score = int(self.right_score.text)
-            self.right_score.text = str(curr_score + 1)
-
 
 class GalleryController():
     def __init__(self):
