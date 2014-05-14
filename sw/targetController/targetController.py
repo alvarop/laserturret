@@ -22,12 +22,24 @@ class GalleryUI():
         self.player.play()
 
     def run(self):
-        self.controller.run()
+        #self.controller.run()
+
+        for gallery in self.controller.galleries:
+            if gallery.score == self.controller.maxScore:
+                self.controller.disableAll(self.controller.currentTarget)
+                
+                gallery.victoryDance()
+
+                self.controller.done = 1
+
+                self.win_text.text = ("Player %s won!" % gallery.id)
+                gallery.score = "-"
+                
 
         #Check for left gallery
         #TODO Don't always assume there are two of these that's dumb.
         self.left_score.text = str(self.controller.galleries[0].score)
-        #self.right_score.text = str(self.controller.galleries[1].score)
+        self.right_score.text = str(self.controller.galleries[1].score)
 
 
 
@@ -38,7 +50,9 @@ class GalleryUI():
        
         self.left_score = avg.WordsNode(pos=(10,10), font="arial", text="-",
                                     parent=rootNode, fontsize=72)
-        self.right_score = avg.WordsNode(pos=(300,10), font="arial", text="-",
+        self.right_score = avg.WordsNode(pos=(400,10), font="arial", text="-",
+                                    parent=rootNode, fontsize=72)
+        self.win_text = avg.WordsNode(pos=(20,300), font="arial", text="",
                                     parent=rootNode, fontsize=72)
 
         self.controller = GalleryController()
@@ -46,7 +60,8 @@ class GalleryUI():
         
         # read in a config file
         if len(sys.argv) > 2:
-            self.controller.galleries[0].configFromFile(sys.argv[2].strip())
+            #self.controller.galleries[0].configFromFile(sys.argv[2].strip())
+            self.controller.addGallery(sys.argv[2])
 
         self.player.setOnFrameHandler(self.run)
 
@@ -56,7 +71,7 @@ class GalleryController():
         self.done = 0
         self.currentTarget = 0
         self.galleries = []
-        self.maxScore = 10
+        self.maxScore = 2
 
     def start(self):
         # select first target
@@ -90,7 +105,7 @@ class GalleryController():
     # Go through each target and check if they've been hit
     # If they're all hit, exit
     #
-    def checkTargets(self):
+    '''    def checkTargets(self):
         for gallery in self.galleries:
             if gallery.score == self.maxScore:
                 print "Player ", gallery, "won!"
@@ -99,7 +114,7 @@ class GalleryController():
                 gallery.victoryDance()
 
                 self.done = 1
-
+    '''
         
     #
     # Process lines coming from targetController via USB-serial link
