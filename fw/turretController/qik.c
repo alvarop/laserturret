@@ -3,7 +3,6 @@
 #include "stm32f4xx_conf.h"
 #include "stm32f4xx.h"
 
-
 #define CMD_FLAG		(0x80)
 
 #define CMD_GETFWVER	(0x81)
@@ -43,8 +42,9 @@ void qikInit() {
 	USART_InitTypeDef USART_InitStruct;
 	// USART_ClockInitTypeDef USART_ClockInitStruct;
 
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
 
 	GPIO_Init(m0.port, &(GPIO_InitTypeDef){(1 << m0.lPin), GPIO_Mode_IN, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_UP});
 	GPIO_Init(m0.port, &(GPIO_InitTypeDef){(1 << m0.rPin), GPIO_Mode_IN, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_UP});
@@ -55,32 +55,32 @@ void qikInit() {
 	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
 	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_3, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
 
-	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_USART2);
-	GPIO_PinAFConfig(GPIOA, GPIO_PinSource3, GPIO_AF_USART2);
+	GPIO_PinAFConfig(GPIOC, GPIO_PinSource10, GPIO_AF_USART3);
+	GPIO_PinAFConfig(GPIOC, GPIO_PinSource11, GPIO_AF_USART3);
 
 	USART_StructInit(&USART_InitStruct);
 	// USART_ClockStructInit(&USART_ClockInitStruct);
 
 	USART_InitStruct.USART_BaudRate = 38400;
 
-	USART_Init(USART2, &USART_InitStruct);
+	USART_Init(USART3, &USART_InitStruct);
 
-	USART_Cmd(USART2, ENABLE);
+	USART_Cmd(USART3, ENABLE);
 
 	// In case autobaud is on
-	USART2->DR = 0xAA;
+	USART3->DR = 0xAA;
 }
 
 static inline void qikTxCmdWithParam(uint8_t cmd, uint8_t param) {
-	while(!(USART2->SR & USART_FLAG_TXE));
-	USART2->DR = cmd;
-	while(!(USART2->SR & USART_FLAG_TXE));
-	USART2->DR = param;
+	while(!(USART3->SR & USART_FLAG_TXE));
+	USART3->DR = cmd;
+	while(!(USART3->SR & USART_FLAG_TXE));
+	USART3->DR = param;
 }
 
 static inline void qikTxCmd(uint8_t cmd) {
-	while(!(USART2->SR & USART_FLAG_TXE));
-	USART2->DR = cmd;
+	while(!(USART3->SR & USART_FLAG_TXE));
+	USART3->DR = cmd;
 }
 
 void qikSetSpeed(uint8_t device, uint8_t speed, uint8_t direction) {
