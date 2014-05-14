@@ -13,6 +13,84 @@ def signal_handler(signal, frame):
 	print "exiting"
 	sys.exit(0)
 
+class GalleryController():
+	def __init__(self):
+		self.eventLock = threading.Event() # Used to block main thread while waiting for events
+		self.done = 0
+		self.currentTarget = 0
+		self.galleries = {}
+
+	def run(self):
+		startTime = datetime.now()
+		while not self.done:
+			# Wait for next event
+			self.eventLock.wait(0.1)
+			self.eventLock.clear()
+
+			self.checkTargets()
+		
+		endTime = datetime.now()
+		
+		totalTime = endTime - startTime
+
+		print "Time: ", (totalTime.seconds + totalTime.microseconds / 1000000.0)
+
+	def addGallery(self, serialDeviceName):
+		galleryIndex = len(self.galleries)
+		self.galleries[galleryIndex] = ShootingGallery(serialDeviceName, galleryIndex)
+		self.galleries[galleryIndex].start()
+
+	#
+	# Go through each target and check if they've been hit
+	# If they're all hit, exit
+	#
+	def checkTargets(self):
+		if(len(self.galleries[0].targets) > 0):
+			notDone = 0
+
+			for key in self.galleries[0].targets.keys():
+				if self.galleries[0].targets[key].on == True:
+					notDone = 1
+
+			if notDone == 0:
+				self.done = 1
+				print "All targets hit!"
+
+	#
+	# Process lines coming from targetController via USB-serial link
+	#
+	def processLine(self, line, source):
+		args = line.split()
+
+		if len(args) > 1:
+			if args[1] == "connected":
+				targetID = int(args[0])
+				print "Target", targetID , "is connected"
+				self.galleries[source].targets[targetID] = Target(targetID, self.galleries[source])
+				self.galleries[source].targets[targetID].disable()
+			elif args[1] == "hit":
+				targetID = int(args[0])
+				print "Target", targetID, "hit!"
+				if targetID in self.galleries[source].targets:
+					self.galleries[source].targets[targetID].hit()
+					while True:
+						currentTarget = randint(0, len(self.galleries[source].targets) - 1)
+						if currentTarget in self.galleries[source].targets:
+							break 
+					self.galleries[source].targets[currentTarget].enable()
+			elif args[1] == "started":
+				self.galleries[source].started = True
+				while True:
+					currentTarget = randint(0, len(self.galleries[source].targets) - 1)
+					if currentTarget in self.galleries[source].targets:
+						break
+				self.galleries[source].targets[currentTarget].enable()
+			else:
+				print "controller: ", line,
+
+		# Something happened, let the main thread run
+		self.eventLock.set()
+
 class ShootingGallery():
 	def __init__(self, streamFileName, id):
 		stream = serial.Serial(streamFileName)
@@ -42,8 +120,8 @@ class ShootingGallery():
 		self.write("start\n")
 
 		while not self.started:
-			eventLock.wait(0.1)
-			eventLock.clear()
+			controller.eventLock.wait(0.1)
+			controller.eventLock.clear()
 
 		print "gallery started"
 
@@ -95,7 +173,7 @@ class serialReadThread(threading.Thread):
 		while self.running:
 			line = self.stream.readline(100);
 			if line:
-				processLine(line, self.id)
+				controller.processLine(line, self.id)
 
 #
 # Write serial stream and add lines to shared queue
@@ -128,58 +206,6 @@ class serialWriteThread(threading.Thread):
 		self.outQueueLock.release()
 		self.outDataAvailable.set()
 
-#
-# Process lines coming from targetController via USB-serial link
-#
-def processLine(line, source):
-	args = line.split()
-
-	if len(args) > 1:
-		if args[1] == "connected":
-			targetID = int(args[0])
-			print "Target", targetID , "is connected"
-			galleries[source].targets[targetID] = Target(targetID, galleries[source])
-			galleries[source].targets[targetID].disable()
-		elif args[1] == "hit":
-			targetID = int(args[0])
-			print "Target", targetID, "hit!"
-			if targetID in galleries[source].targets:
-				galleries[source].targets[targetID].hit()
-				while True:
-					currentTarget = randint(0, len(galleries[source].targets) - 1)
-					if currentTarget in galleries[source].targets:
-						break 
-				galleries[source].targets[currentTarget].enable()
-		elif args[1] == "started":
-			galleries[source].started = True
-			while True:
-				currentTarget = randint(0, len(galleries[source].targets) - 1)
-				if currentTarget in galleries[source].targets:
-					break
-			galleries[source].targets[currentTarget].enable()
-		else:
-			print "controller: ", line,
-
-	# Something happened, let the main thread run
-	eventLock.set()
-
-#
-# Go through each target and check if they've been hit
-# If they're all hit, exit
-#
-def checkTargets():
-	if(len(galleries[0].targets) > 0):
-		notDone = 0
-
-		for key in galleries[0].targets.keys():
-			if galleries[0].targets[key].on == True:
-				notDone = 1
-
-		if notDone == 0:
-			global done
-			done = 1
-			print "All targets hit!"
-
 # 
 #  Start here :D
 # 
@@ -191,32 +217,14 @@ signal.signal(signal.SIGINT, signal_handler)
 
 print "Press Ctrl + C to exit"
 
-eventLock = threading.Event() # Used to block main thread while waiting for events
-
-done = 0
-currentTarget = 0
-
-galleries = {}
-galleries[0] = ShootingGallery(sys.argv[1], 0)
-galleries[0].start()
+controller = GalleryController()
+controller.addGallery(sys.argv[1])
 
 # read in a config file
 if len(sys.argv) > 2:
-	galleries[0].configFromFile(sys.argv[2].strip())
+	controller.galleries[0].configFromFile(sys.argv[2].strip())
 
-startTime = datetime.now()
-
-while not done:
-	# Wait for next event
-	eventLock.wait(0.1)
-	eventLock.clear()
-
-	checkTargets()
-
-endTime = datetime.now()
-
-totalTime = endTime - startTime
-
-print "Time: ", (totalTime.seconds + totalTime.microseconds / 1000000.0)
+# Run until done
+controller.run()
 
 sys.exit(0)
