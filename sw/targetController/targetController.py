@@ -46,24 +46,24 @@ class GalleryUI():
         print "got to UI start."
         self.player.play()
 
+    def endRun(self):
+        self.controller.done = 1
+        self.win_text.text = ("PLAYER %s WINS!" % self.winner_id)
+
     def normalRun(self):
-     for gallery in self.controller.galleries:
-        if gallery.score == self.controller.maxScore:
-            self.controller.disableAll(self.controller.currentTarget)
-            
-            gallery.victoryDance()
-            self.controller.done = 1
-            self.win_text.text = ("PLAYER %s WINS!" % gallery.id)
-
-            #Want to make it so they no longer match and win condition will stop triggering.
-            self.controller.maxScore = -1
-        elif self.controller.maxScore == -1:
-            pass
-        else:
-            time_passed = datetime.now() - self.start_time
-            timer = round(time_passed.seconds + time_passed.microseconds / 1000000.0, 2)
-            self.timer_text.text = str(timer)
-
+        time_passed = datetime.now() - self.start_time
+        timer = round(time_passed.seconds + time_passed.microseconds / 1000000.0, 2)
+        self.timer_text.text = str(timer)
+        
+        for gallery in self.controller.galleries:
+            if gallery.score == self.controller.maxScore:
+                self.controller.disableAll(self.controller.currentTarget)
+                
+                self.end_timer = timer
+                gallery.victoryDance()
+                self.state = "complete"
+                
+                self.winner_id = gallery.id
 
         #Check for left gallery
         #TODO Don't always assume there are two of these that's dumb.
@@ -71,9 +71,13 @@ class GalleryUI():
         self.right_score.text = str(self.controller.galleries[1].score)
 
     def countDown(self):
-        if self.countIndex == 3:
+        if self.countIndex == 4:
+            self.countdown_text.text = "3"
+        elif self.countIndex == 3:
+            self.countdown_text.text = "2"
             playSound("../sounds/Three.wav")
         elif self.countIndex == 2:
+            self.countdown_text.text = "1"
             playSound("../sounds/Two.wav")
         elif self.countIndex == 1:
             playSound("../sounds/One.wav")
@@ -82,22 +86,29 @@ class GalleryUI():
             self.start_time = datetime.now()
             self.started = True
             self.controller.start()
-        
+            self.state = "started"
+       
+            #Visuals for the scores and the countdowns
+            self.left_score.opacity=1
+            self.right_score.opacity=1
+            self.countdown_text.opacity=0
+
         self.countIndex -= 1
 
     def run(self):
         #self.controller.run()
 
-        if self.countdown:
+        if self.state == "countdown":
             self.countDown()
-
-        elif self.started:
+        elif self.state == "started":
             self.normalRun()
-
-        
+        else:
+            self.endRun()
 
     def __init__(self):
         self.player = avg.Player.get()
+
+        self.state = "countdown"
 
         win_x = 1280/2
         win_y = 800/2
@@ -105,19 +116,24 @@ class GalleryUI():
         canvas = self.player.createMainCanvas(size=(win_x, win_y))
         rootNode = canvas.getRootNode()
        
-        self.left_score = avg.WordsNode(pos=(win_x*.15,10), font="arial", text="-",
-                                    parent=rootNode, fontsize=win_y * .6)
-        self.right_score = avg.WordsNode(pos=(win_x*.6,10), font="arial", text="-",
-                                    parent=rootNode, fontsize=win_y * .6)
+        self.left_score = avg.WordsNode(pos=(win_x*.15,10), font="arial", text="",
+                                    parent=rootNode, fontsize=win_y * .6, opacity=0)
+        self.right_score = avg.WordsNode(pos=(win_x*.6,10), font="arial", text="",
+                                    parent=rootNode, fontsize=win_y * .6, opacity=0)
         self.win_text = avg.WordsNode(pos=(win_x*.2, win_y*.75), font="arial", text="",
                                     parent=rootNode, fontsize=win_y*.15, color = "ffd700")
         self.timer_text = avg.WordsNode(pos=(win_x*.4,win_y*.9), font="arial", text="",
                                     parent=rootNode, fontsize=win_y*.1)
-    
+        self.countdown_text = avg.WordsNode(pos=(win_x*.3,0), font="arial", text="",
+                                    parent=rootNode, fontsize=win_y*.9)
+            
+        
+        self.winner_id = None
+
         self.start_time = datetime.now()
 
         self.countdown = True
-        self.countIndex = 3
+        self.countIndex = 4
 
         self.controller = GalleryController()
         self.controller.addGallery(sys.argv[1])
@@ -155,12 +171,7 @@ class GalleryController():
             self.eventLock.clear()
         '''
         self.checkTargets()
-        '''endTime = datetime.now()
-
-        totalTime = endTime - startTime
-
-        print "Time: ", (totalTime.seconds + totalTime.microseconds / 1000000.0)
-        '''
+    
     def addGallery(self, serialDeviceName):
         galleryIndex = len(self.galleries)
         self.galleries.append(ShootingGallery(serialDeviceName, galleryIndex, self))
@@ -204,7 +215,7 @@ class GalleryController():
                         if self.currentTarget in self.galleries[source].targets:
                             break 
                     self.enableAll(self.currentTarget)
-                    playSound("../laser.wav")
+                    playSound("../sounds/laser.wav")
             elif args[1] == "started":
                 self.galleries[source].started = True
             else:
@@ -247,7 +258,8 @@ class ShootingGallery():
 
         # Start scan for connected targets
         self.write("init\n")
-
+        self.write("forceconnect\n")
+        
         # Enable targets and wait for hits
         self.write("start\n")
 
@@ -339,7 +351,7 @@ class serialWriteThread(threading.Thread):
             if not self.outQueue.empty():
                 self.outQueueLock.acquire()
                 line = unicode(self.outQueue.get())
-                print line
+                #print line
                 self.stream.write(str(line))
                 self.outQueueLock.release()
             else:
