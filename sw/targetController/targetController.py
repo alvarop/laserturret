@@ -67,7 +67,6 @@ class GalleryUI():
             if gallery.score == self.controller.maxScore:
                 self.controller.disableAll(self.controller.currentTarget)
                 
-                self.end_timer = timer
                 gallery.victoryDance()
                 self.state = "complete"
                 
@@ -194,35 +193,13 @@ class GalleryController():
         self.enableAll(self.currentTarget)
 
     def run(self):
-        startTime = datetime.now()
-        '''while not self.done:
-            # Wait for next event
-            self.eventLock.wait(0.1)
-            self.eventLock.clear()
-        '''
         self.checkTargets()
     
     def addGallery(self, serialDeviceName):
         galleryIndex = len(self.galleries)
         self.galleries.append(ShootingGallery(serialDeviceName, galleryIndex, self))
         self.galleries[galleryIndex].start()
-
-    #
-    # Go through each target and check if they've been hit
-    # If they're all hit, exit
-    #
-    '''    def checkTargets(self):
-        for gallery in self.galleries:
-            if gallery.score == self.maxScore:
-                print "Player ", gallery, "won!"
-                self.disableAll(self.currentTarget)
-                
-                gallery.victoryDance()
-
-                self.done = 1
-    '''
-        
-    #
+    
     # Process lines coming from targetController via USB-serial link
     #
     def processLine(self, line, source):
