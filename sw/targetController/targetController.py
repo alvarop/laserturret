@@ -42,11 +42,19 @@ def signal_handler(signal, frame):
     sys.exit(0)
 
 class GalleryUI():
+    def onMouseDown(self, event):
+        self.state = "countdown"
+        self.countIndex = 4
+        
+        for gallery in self.controller.galleries:
+            gallery.score = 0
+
     def start(self):
         print "got to UI start."
         self.player.play()
 
     def endRun(self):
+        self.reset_button.opacity=1
         self.controller.done = 1
         self.win_text.text = ("PLAYER %s WINS!" % self.winner_id)
 
@@ -70,7 +78,26 @@ class GalleryUI():
         self.left_score.text = str(self.controller.galleries[0].score)
         self.right_score.text = str(self.controller.galleries[1].score)
 
+    def reset_prev_game_visuals(self):
+        self.left_score.opacity=0
+        self.right_score.opacity=0
+        self.reset_button.opacity=0
+        self.countdown_text.opacity=1
+        self.win_text.opacity=0
+        self.timer_text.opacity=0
+
+    def start_scoring_visuals(self):
+        self.left_score.opacity=1
+        self.right_score.opacity=1
+        self.countdown_text.opacity=0
+        self.win_text.text=""
+        self.win_text.opacity=1
+        self.timer_text.opacity=1
+
     def countDown(self):
+        
+        self.reset_prev_game_visuals()
+
         if self.countIndex == 4:
             self.countdown_text.text = "3"
         elif self.countIndex == 3:
@@ -82,16 +109,13 @@ class GalleryUI():
         elif self.countIndex == 1:
             playSound("../sounds/One.wav")
         else:
+            self.start_scoring_visuals()
+            
             self.countdown = False
             self.start_time = datetime.now()
             self.started = True
             self.controller.start()
             self.state = "started"
-       
-            #Visuals for the scores and the countdowns
-            self.left_score.opacity=1
-            self.right_score.opacity=1
-            self.countdown_text.opacity=0
 
         self.countIndex -= 1
 
@@ -126,8 +150,14 @@ class GalleryUI():
                                     parent=rootNode, fontsize=win_y*.1)
         self.countdown_text = avg.WordsNode(pos=(win_x*.3,0), font="arial", text="",
                                     parent=rootNode, fontsize=win_y*.9)
-            
-        
+
+        self.reset_button = avg.RectNode(pos=(win_x*.01, win_y*.8), 
+                                size=(win_x*.1, win_x*.1), angle=0, parent=rootNode, 
+                                opacity=0, fillcolor = "0000FF")
+                        
+        self.reset_button.connectEventHandler(avg.CURSORDOWN, avg.MOUSE, 
+                        self.reset_button, self.onMouseDown)
+
         self.winner_id = None
 
         self.start_time = datetime.now()
