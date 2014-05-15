@@ -2,6 +2,7 @@
 
 import sys
 import io
+import os
 import threading
 import Queue
 import signal
@@ -15,6 +16,9 @@ import pyaudio
 import wave
 
 CHUNK = 1024
+
+def playRandomSound(soundList):
+    playSound(soundList[randint(0, len(soundList) - 1)])
 
 def playSound(filename):
     wf = wave.open(filename, 'rb')
@@ -180,7 +184,7 @@ class GalleryController():
         self.done = 0
         self.currentTarget = 0
         self.galleries = []
-        self.maxScore = 2
+        self.maxScore = 5
 
     def start(self):
 
@@ -222,7 +226,8 @@ class GalleryController():
                         if self.currentTarget in self.galleries[source].targets:
                             break 
                     self.enableAll(self.currentTarget)
-                    playSound("../sounds/laser.wav")
+                    playRandomSound(laserSounds)
+
             elif args[1] == "started":
                 self.galleries[source].started = True
             else:
@@ -386,6 +391,9 @@ print "Press Ctrl + C to exit"
 #   controller.addGallery(sys.argv[2])
 
 #controller.start()
+
+laserSoundPath = "../sounds/laser/"
+laserSounds = [laserSoundPath + item for item in os.listdir(laserSoundPath)]
 
 ui = GalleryUI()
 ui.start()
