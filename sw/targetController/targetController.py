@@ -31,7 +31,7 @@ class GalleryUI():
                 
                 gallery.victoryDance()
                 self.controller.done = 1
-                self.win_text.text = ("Player %s won!" % gallery.id)
+                self.win_text.text = ("PLAYER %s WINS!" % gallery.id)
 
                 #Want to make it so they no longer match and win condition will stop triggering.
                 self.controller.maxScore = -1
@@ -39,7 +39,7 @@ class GalleryUI():
                 pass
             else:
                 time_passed = datetime.now() - self.start_time
-                timer = time_passed.seconds + time_passed.microseconds / 1000000.0
+                timer = round(time_passed.seconds + time_passed.microseconds / 1000000.0, 2)
                 self.timer_text.text = str(timer)
  
 
@@ -52,24 +52,22 @@ class GalleryUI():
 
     def __init__(self):
         self.player = avg.Player.get()
-        canvas = self.player.createMainCanvas(size=(640,480))
+
+        win_x = 1800
+        win_y = 1000
+
+        canvas = self.player.createMainCanvas(size=(win_x, win_y))
         rootNode = canvas.getRootNode()
        
-        self.left_score = avg.WordsNode(pos=(10,10), font="arial", text="-",
-                                    parent=rootNode, fontsize=100)
-        self.right_score = avg.WordsNode(pos=(400,10), font="arial", text="-",
-                                    parent=rootNode, fontsize=100)
-        self.win_text = avg.WordsNode(pos=(20,300), font="arial", text="",
-                                    parent=rootNode, fontsize=72)
-        self.timer_text = avg.WordsNode(pos=(20,400), font="arial", text="",
-                                    parent=rootNode, fontsize=72)
+        self.left_score = avg.WordsNode(pos=(win_x*.15,10), font="arial", text="-",
+                                    parent=rootNode, fontsize=win_y * .6)
+        self.right_score = avg.WordsNode(pos=(win_x*.6,10), font="arial", text="-",
+                                    parent=rootNode, fontsize=win_y * .6)
+        self.win_text = avg.WordsNode(pos=(win_x*.2, win_y*.75), font="arial", text="",
+                                    parent=rootNode, fontsize=win_y*.15, color = "ffd700")
+        self.timer_text = avg.WordsNode(pos=(win_x*.4,win_y*.9), font="arial", text="",
+                                    parent=rootNode, fontsize=win_y*.1)
     
-        '''endTime = datetime.now()
-
-        totalTime = endTime - startTime
-
-        print "Time: ", (totalTime.seconds + totalTime.microseconds / 1000000.0)
-        '''
         self.start_time = datetime.now()
 
 
@@ -89,7 +87,7 @@ class GalleryController():
         self.done = 0
         self.currentTarget = 0
         self.galleries = []
-        self.maxScore = 10
+        self.maxScore = 2
 
     def start(self):
         # select first target
