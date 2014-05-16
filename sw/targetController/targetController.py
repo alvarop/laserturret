@@ -171,10 +171,13 @@ class GalleryUI():
         self.controller = GalleryController()
         self.controller.addGallery(sys.argv[1])
         
-        # read in a config file
         if len(sys.argv) > 2:
-            #self.controller.galleries[0].configFromFile(sys.argv[2].strip())
             self.controller.addGallery(sys.argv[2])
+
+        # read in a config file
+        if len(sys.argv) > 4:
+            self.controller.galleries[0].configFromFile(sys.argv[3].strip())
+            self.controller.galleries[1].configFromFile(sys.argv[4].strip())
 
         self.player.setOnFrameHandler(self.run)
 
@@ -379,26 +382,18 @@ class serialWriteThread(threading.Thread):
 # 
 #  Start here :D
 # 
-if not len(sys.argv) > 1:
-    print "Usage: " + sys.argv[0] + " </dev/serialdevicename>"
+if not len(sys.argv) > 2:
+    print "Usage: " + sys.argv[0] + " </dev/serialdevicename> <dev/serialdevicename> [config1] [config2]"
     sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
 
 print "Press Ctrl + C to exit"
 
-#if len(sys.argv) > 2:
-#   controller.addGallery(sys.argv[2])
-
-#controller.start()
-
 laserSoundPath = "../sounds/laser/"
 laserSounds = [laserSoundPath + item for item in os.listdir(laserSoundPath)]
 
 ui = GalleryUI()
 ui.start()
-
-# Run until done
-#controller.run()
 
 sys.exit(0)
