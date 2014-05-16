@@ -71,7 +71,7 @@ static void init(uint8_t argc, char *argv[]) {
 }
 
 static void force(uint8_t argc, char *argv[]) {
-	targetInit();	
+	forceConnect();
 }
 
 //
