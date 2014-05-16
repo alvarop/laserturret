@@ -137,8 +137,8 @@ class GalleryUI():
 
         self.state = "countdown"
 
-        win_x = 1280/2
-        win_y = 800/2
+        win_x = 1280
+        win_y = 800
 
         canvas = self.player.createMainCanvas(size=(win_x, win_y))
         rootNode = canvas.getRootNode()
@@ -184,7 +184,7 @@ class GalleryController():
         self.done = 0
         self.currentTarget = 0
         self.galleries = []
-        self.maxScore = 5
+        self.maxScore = 10
 
     def start(self):
 
