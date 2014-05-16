@@ -204,7 +204,7 @@ class GalleryController():
                         if self.currentTarget in self.galleries[source].targets:
                             break 
                     self.enableAll(self.currentTarget)
-                    playSound("/home/alvaro/Desktop/laser.wav")
+                    playSound("../laser.wav")
             elif args[1] == "started":
                 self.galleries[source].started = True
             else:
