@@ -37,13 +37,6 @@ def playSound(filename):
 
     p.terminate()
 
-def countDown():
-    playSound("../sounds/Three.wav")
-    time.sleep(0.2)
-    playSound("../sounds/Two.wav")
-    time.sleep(0.2)
-    playSound("../sounds/One.wav")
-
 def signal_handler(signal, frame):
     print "exiting"
     sys.exit(0)
@@ -51,42 +44,63 @@ def signal_handler(signal, frame):
 class GalleryUI():
     def start(self):
         print "got to UI start."
-        self.controller.start()
         self.player.play()
 
-    def run(self):
-        #self.controller.run()
+    def normalRun(self):
+     for gallery in self.controller.galleries:
+        if gallery.score == self.controller.maxScore:
+            self.controller.disableAll(self.controller.currentTarget)
+            
+            gallery.victoryDance()
+            self.controller.done = 1
+            self.win_text.text = ("PLAYER %s WINS!" % gallery.id)
 
-        for gallery in self.controller.galleries:
-            if gallery.score == self.controller.maxScore:
-                self.controller.disableAll(self.controller.currentTarget)
-                
-                gallery.victoryDance()
-                self.controller.done = 1
-                self.win_text.text = ("PLAYER %s WINS!" % gallery.id)
+            #Want to make it so they no longer match and win condition will stop triggering.
+            self.controller.maxScore = -1
+        elif self.controller.maxScore == -1:
+            pass
+        else:
+            time_passed = datetime.now() - self.start_time
+            timer = round(time_passed.seconds + time_passed.microseconds / 1000000.0, 2)
+            self.timer_text.text = str(timer)
 
-                #Want to make it so they no longer match and win condition will stop triggering.
-                self.controller.maxScore = -1
-            elif self.controller.maxScore == -1:
-                pass
-            else:
-                time_passed = datetime.now() - self.start_time
-                timer = round(time_passed.seconds + time_passed.microseconds / 1000000.0, 2)
-                self.timer_text.text = str(timer)
- 
 
         #Check for left gallery
         #TODO Don't always assume there are two of these that's dumb.
         self.left_score.text = str(self.controller.galleries[0].score)
         self.right_score.text = str(self.controller.galleries[1].score)
 
+    def countDown(self):
+        if self.countIndex == 3:
+            playSound("../sounds/Three.wav")
+        elif self.countIndex == 2:
+            playSound("../sounds/Two.wav")
+        elif self.countIndex == 1:
+            playSound("../sounds/One.wav")
+        else:
+            self.countdown = False
+            self.start_time = datetime.now()
+            self.started = True
+            self.controller.start()
+        
+        self.countIndex -= 1
 
+    def run(self):
+        #self.controller.run()
+
+        if self.countdown:
+            self.countDown()
+
+        elif self.started:
+            self.normalRun()
+
+        
 
     def __init__(self):
         self.player = avg.Player.get()
 
-        win_x = 1800
-        win_y = 1000
+        win_x = 1280/2
+        win_y = 800/2
 
         canvas = self.player.createMainCanvas(size=(win_x, win_y))
         rootNode = canvas.getRootNode()
@@ -102,6 +116,8 @@ class GalleryUI():
     
         self.start_time = datetime.now()
 
+        self.countdown = True
+        self.countIndex = 3
 
         self.controller = GalleryController()
         self.controller.addGallery(sys.argv[1])
@@ -122,8 +138,6 @@ class GalleryController():
         self.maxScore = 2
 
     def start(self):
-
-        countDown()
 
         # select first target
         while True:
