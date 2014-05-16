@@ -47,6 +47,8 @@ def signal_handler(signal, frame):
 
 class GalleryUI():
     def onMouseDown(self, event):
+        self.left_score.text="0"
+        self.right_score.text="0"
         self.state = "countdown"
         self.countIndex = 4
         
