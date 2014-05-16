@@ -11,6 +11,38 @@ from datetime import datetime
 from random import randint
 from libavg import avg
 from time import gmtime, strftime
+import pyaudio
+import wave
+
+CHUNK = 1024
+
+def playSound(filename):
+    wf = wave.open(filename, 'rb')
+
+    p = pyaudio.PyAudio()
+
+    stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
+                    channels=wf.getnchannels(),
+                    rate=wf.getframerate(),
+                    output=True)
+
+    data = wf.readframes(CHUNK)
+
+    while data != '':
+        stream.write(data)
+        data = wf.readframes(CHUNK)
+
+    stream.stop_stream()
+    stream.close()
+
+    p.terminate()
+
+def countDown():
+    playSound("../sounds/Three.wav")
+    time.sleep(0.2)
+    playSound("../sounds/Two.wav")
+    time.sleep(0.2)
+    playSound("../sounds/One.wav")
 
 def signal_handler(signal, frame):
     print "exiting"
@@ -90,6 +122,9 @@ class GalleryController():
         self.maxScore = 2
 
     def start(self):
+
+        countDown()
+
         # select first target
         while True:
             self.currentTarget = randint(0, len(self.galleries[0].targets) - 1)
@@ -155,6 +190,7 @@ class GalleryController():
                         if self.currentTarget in self.galleries[source].targets:
                             break 
                     self.enableAll(self.currentTarget)
+                    playSound("/home/alvaro/Desktop/laser.wav")
             elif args[1] == "started":
                 self.galleries[source].started = True
             else:
@@ -312,7 +348,6 @@ if not len(sys.argv) > 1:
 signal.signal(signal.SIGINT, signal_handler)
 
 print "Press Ctrl + C to exit"
-
 
 #if len(sys.argv) > 2:
 #   controller.addGallery(sys.argv[2])
