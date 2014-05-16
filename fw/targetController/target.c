@@ -91,7 +91,7 @@ void targetInit() {
 		GPIO_WriteBit(targets[target].powerPort, (1 << targets[target].powerPin), 1);
 
 		// Wait for change to take effect
-		delay(1000);
+		delay(10000);
 
 		// Check if target is plugged in
 		if(targetRead(target) == 0xFFF) {
@@ -99,6 +99,7 @@ void targetInit() {
 			targets[target].connected = 1;
 		} else {
 			targets[target].connected = 0;
+			printf("%d connERR %04X\n", target, targetRead(target));
 		}
 
 		// Enable target
@@ -108,6 +109,13 @@ void targetInit() {
 	targetTimer = 0;
 
 	targetsRunning = 0;
+}
+
+void forceConnect() {
+	for(uint8_t target = 0; target < TOTAL_TARGETS; target++) {
+		printf("%d connected\n", target);
+		targets[target].connected = 1;
+	}
 }
 
 uint16_t targetRead(uint8_t target) {

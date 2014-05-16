@@ -9,6 +9,7 @@
 #define TARGET_CAL_SAMPLES		(100)
 
 void targetInit();
+void forceConnect();
 void targetStart(uint8_t all);
 void targetStop();
 void targetCalibrate(uint8_t target, uint8_t state);
