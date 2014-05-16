@@ -265,9 +265,12 @@ class serialReadThread(threading.Thread):
 
     def run(self):
         while self.running:
-            line = self.stream.readline(100);
-            if line:
-                self.controller.processLine(line, self.id)
+            try:
+                line = self.stream.readline(50);
+                if line:
+                    self.controller.processLine(line, self.id)
+            except serial.SerialException:
+                print "serial error"
 
 #
 # Write serial stream and add lines to shared queue
