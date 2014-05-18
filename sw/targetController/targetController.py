@@ -61,8 +61,12 @@ class GalleryUI():
 
     def endRun(self):
         self.reset_button.opacity=1
+        self.reset_button.fillopacity=1
         self.controller.done = 1
         self.win_text.text = ("PLAYER %s WINS!" % self.winner_id)
+        if self.end_sound == 1:
+            playRandomSound(winnerSounds)
+        self.end_sound += 1
 
     def normalRun(self):
         time_passed = datetime.now() - self.start_time
@@ -77,6 +81,7 @@ class GalleryUI():
                 self.state = "complete"
                 
                 self.winner_id = gallery.id
+                self.end_sound = 0
 
         #Check for left gallery
         #TODO Don't always assume there are two of these that's dumb.
@@ -87,6 +92,7 @@ class GalleryUI():
         self.left_score.opacity=0
         self.right_score.opacity=0
         self.reset_button.opacity=0
+        self.reset_button.fillopacity=0
         self.countdown_text.opacity=1
         self.win_text.opacity=0
         self.timer_text.opacity=0
@@ -104,6 +110,9 @@ class GalleryUI():
         self.reset_prev_game_visuals()
 
         if self.countIndex == 4:
+            for gallery in self.controller.galleries:
+                for target in gallery.targets:
+                    gallery.targets[target].disable()
             self.countdown_text.text = "3"
         elif self.countIndex == 3:
             self.countdown_text.text = "2"
@@ -139,26 +148,28 @@ class GalleryUI():
 
         self.state = "countdown"
 
-        win_x = 1280
-        win_y = 800
+        win_x = 1024
+        win_y = 700
 
         canvas = self.player.createMainCanvas(size=(win_x, win_y))
         rootNode = canvas.getRootNode()
        
-        self.left_score = avg.WordsNode(pos=(win_x*.15,10), font="arial", text="",
-                                    parent=rootNode, fontsize=win_y * .6, opacity=0)
-        self.right_score = avg.WordsNode(pos=(win_x*.6,10), font="arial", text="",
-                                    parent=rootNode, fontsize=win_y * .6, opacity=0)
+        self.left_score = avg.WordsNode(pos=(win_x*.05,10), text="",
+                                    parent=rootNode, fontsize=win_y * .5, opacity=0,
+                                    variant="narrow", font="Times New Roman")
+        self.right_score = avg.WordsNode(pos=(win_x*.5,10), text="",
+                                    parent=rootNode, fontsize=win_y * .5, opacity=0,
+                                    variant="narrow", font="Times New Roman")
         self.win_text = avg.WordsNode(pos=(win_x*.2, win_y*.75), font="arial", text="",
-                                    parent=rootNode, fontsize=win_y*.15, color = "ffd700")
+                                    parent=rootNode, fontsize=win_y*.125, color = "ffd700")
         self.timer_text = avg.WordsNode(pos=(win_x*.4,win_y*.9), font="arial", text="",
                                     parent=rootNode, fontsize=win_y*.1)
         self.countdown_text = avg.WordsNode(pos=(win_x*.3,0), font="arial", text="",
                                     parent=rootNode, fontsize=win_y*.9)
 
-        self.reset_button = avg.RectNode(pos=(win_x*.01, win_y*.8), 
-                                size=(win_x*.1, win_x*.1), angle=0, parent=rootNode, 
-                                opacity=0, fillcolor = "0000FF")
+        self.reset_button = avg.RectNode(pos=(win_x*.01, win_y*.9), 
+                                size=(win_x*.05, win_x*.05), angle=0, parent=rootNode, 
+                                opacity=0, color= "0000FF", fillcolor="0000FF", fillopacity=0)
                         
         self.reset_button.connectEventHandler(avg.CURSORDOWN, avg.MOUSE, 
                         self.reset_button, self.onMouseDown)
@@ -169,6 +180,8 @@ class GalleryUI():
 
         self.countdown = True
         self.countIndex = 4
+
+        self.end_sound = 0
 
         self.controller = GalleryController()
         self.controller.addGallery(sys.argv[1])
@@ -189,7 +202,7 @@ class GalleryController():
         self.done = 0
         self.currentTarget = 0
         self.galleries = []
-        self.maxScore = 10
+        self.maxScore = 15
 
     def start(self):
 
@@ -394,6 +407,9 @@ print "Press Ctrl + C to exit"
 
 laserSoundPath = "../sounds/laser/"
 laserSounds = [laserSoundPath + item for item in os.listdir(laserSoundPath)]
+
+winnerSoundsPath = "../sounds/winner/"
+winnerSounds = [winnerSoundsPath + item for item in os.listdir(winnerSoundsPath)]
 
 ui = GalleryUI()
 ui.start()
