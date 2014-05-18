@@ -38,12 +38,21 @@ extern volatile uint32_t tickMs;
 static uint32_t targetTimer;
 static uint8_t targetsRunning;
 
+static uint32_t targetHitTime = 50;
+
 #define PORT_LETTER(x) (((((uint32_t)x) >> 10) & 0xF) + 'A')
 
 void delay(uint32_t delay) {
 	while(delay--) {
 		asm volatile(" nop");
 	}
+}
+
+void targetSetHitTime(uint32_t newHitTime) {
+	if(newHitTime < 2) {
+		newHitTime = 2;
+	}
+	targetHitTime = newHitTime;
 }
 
 void targetStart(uint8_t all) {
@@ -210,7 +219,7 @@ void targetProcess() {
 				}
 			}
 
-			if(targets[target].enabled && (targets[target].timeHit >= TARGET_HIT_THRESHOLD)) {
+			if(targets[target].enabled && (targets[target].timeHit >= targetHitTime)) {
 				printf("%d hit\n", target);
 				targetSet(target, 0); // Turn off the target
 			}

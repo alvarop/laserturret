@@ -24,6 +24,7 @@ static void set(uint8_t argc, char *argv[]);
 static void read(uint8_t argc, char *argv[]);
 static void calibrate(uint8_t argc, char *argv[]);
 static void hitThreshold(uint8_t argc, char *argv[]);
+static void hitTime(uint8_t argc, char *argv[]);
 static void start(uint8_t argc, char *argv[]);
 static void stop(uint8_t argc, char *argv[]);
 
@@ -34,6 +35,7 @@ static command_t commands[] = {
 	{"read", read, "Usage: read <target>"},
 	{"cal", calibrate, "Usage: cal <target> <0(miss),1(hit)>"},
 	{"ht", hitThreshold, "Usage: ht <target> [new threshold]"},
+	{"hittime", hitTime, "Usage: hittime <time(ms)>"},
 	{"start", start, "Usage: start"},
 	{"stop", stop, "Usage: stop"},
 	// Add new commands here!
@@ -118,6 +120,19 @@ static void hitThreshold(uint8_t argc, char *argv[]) {
 		uint16_t newThreshold = strtoul(argv[2], NULL, 10);
 
 		targetSetHitThreshold(target, newThreshold);
+	}
+}
+
+//
+// Set/get hit time
+//
+static void hitTime(uint8_t argc, char *argv[]) {
+	if(argc == 2) {
+		uint32_t newHitTime = strtoul(argv[1], NULL, 10);
+		targetSetHitTime(newHitTime);
+		printf("Setting hittime to %d\n", newHitTime);
+	} else {
+		printf("Error setting hittime\n");
 	}
 }
 
