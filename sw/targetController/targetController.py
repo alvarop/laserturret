@@ -199,10 +199,11 @@ class GalleryUI():
 class GalleryController():
     def __init__(self):
         self.eventLock = threading.Event() # Used to block main thread while waiting for events
+        self.hitLock = threading.Lock()
         self.done = 0
         self.currentTarget = 0
         self.galleries = []
-        self.maxScore = 15
+        self.maxScore = 25
 
     def start(self):
 
@@ -289,6 +290,7 @@ class ShootingGallery():
         # Start scan for connected targets
         self.write("init\n")
         self.write("forceconnect\n")
+        self.write("hittime 100\n")
         
         # Enable targets and wait for hits
         self.write("start\n")
@@ -311,6 +313,18 @@ class ShootingGallery():
 
     def victoryDance(self):
         # TODO - make awesomer
+        for target in self.targets:
+            self.targets[target].enable()
+            time.sleep(0.05)
+            self.targets[target].disable()
+        for target in self.targets:
+            self.targets[target].enable()
+            time.sleep(0.05)
+            self.targets[target].disable()
+        for target in self.targets:
+            self.targets[target].enable()
+            time.sleep(0.05)
+            self.targets[target].disable()
         for target in self.targets:
             self.targets[target].enable()
             time.sleep(0.05)
