@@ -1,12 +1,16 @@
 '''Webcams learn to detect blue circles, take two.'''
 
-import SimpleCV
 import datetime
 import os
+import SimpleCV
+import argparse as arg
+
 
 display = SimpleCV.Display()
 cam = SimpleCV.Camera(1, {"height": 1000, "width": 1000})
 normalDisplay = True
+
+
 
 while display.isNotDone():
     

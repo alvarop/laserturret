@@ -24,7 +24,7 @@ def main():
     peaks = no_circle.huePeaks()
     print peaks
 
-    pared_image = no_circle.hueDistance(123)
+    pared_image = no_circle.hueDistance(165)
 
     blobs = pared_image.findBlobs(minsize=200)
     #.2 is the tolerance for matching a perfect circle. Higher the number, the more things
@@ -35,7 +35,7 @@ def main():
         #print "lookin at blob"
         #if b.isCircle(tolerance=.1):
         #    print "found circle!"    
-        no_circle_out.drawCircle((b.x, b.y), b.radius(), scv.Color.YELLOW, 8)
+        no_circle_out.drawCircle((b.x, b.y), b.radius(), scv.Color.RED, 5)
         #    print ("Circle X: %s, Y: %s, Radius: %s" % (b.x, b.y, b.radius()))
 
     no_circle_out.save('./testing_prev_undetected_left.png') 
