@@ -29,7 +29,7 @@ static void motorCmd(uint8_t argc, char *argv[]);
 static command_t commands[] = {
 	{"laser", laserCmd, "Usage: laser <0, 1>"},
 	{"qik"	, qikCmd,	"Usage: qik"},
-	{"motor", motorCmd,	"Usage: motor <motor(0-1)> <stop | position>"},
+	{"m", motorCmd,	"Usage: m <motor(0-1)> <stop | position>"},
 	// Add new commands here!
 	{"help", helpFn, "Print this!"},
 	{NULL, NULL, NULL}

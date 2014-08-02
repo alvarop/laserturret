@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define TOTAL_MOTORS	(2)
-#define PERIOD_MS		(10.0)
+#define PERIOD_MS		(2.0)
 
 void motorInit();
 void motorCenter();

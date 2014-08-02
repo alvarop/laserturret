@@ -100,6 +100,8 @@ void motorProcess() {
 			int32_t err = motors[motor].newPos - motorGetPos(motor);
 			int16_t speed;
 
+			motors[motor].oldErr = err;
+
 			motors[motor].p = motors[motor].kp * (float)err;
 			motors[motor].d = motors[motor].kd * (float)(err - motors[motor].oldErr)/sampleTime;
 			motors[motor].i += motors[motor].ki * (float)err;
