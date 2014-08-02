@@ -8,7 +8,6 @@
 #include "usbd_usr.h"
 #include "usbd_desc.h"
 #include "usbd_cdc_vcp.h"
-#include "qdecoder.h"
 
 #include "console.h"
 
@@ -33,7 +32,6 @@ int main(void) {
 	for(;;) {
 
 		consoleProcess();
-		qdecoderProcess();
 
 		if(tickMs > nextBlink) {
 			nextBlink = tickMs + BLINK_DELAY_MS;
@@ -67,7 +65,6 @@ void init() {
 	GPIO_Init(GPIOD, &(GPIO_InitTypeDef){GPIO_Pin_12, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
 
 	consoleInit();
-	qdecoderInit();
 
 	USBD_Init(&USB_OTG_dev,
 				USB_OTG_FS_CORE_ID,
