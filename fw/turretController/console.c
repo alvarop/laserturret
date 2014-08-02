@@ -92,7 +92,7 @@ static void qikCmd(uint8_t argc, char *argv[]) {
 			}
 
 			if(strcmp("mov", argv[2]) == 0) {
-				//printf("Move M%d %s at speed %d\n", mot, (dir)? "Fwd" : "Rev", abs(speed));
+				// printf("Move M%d %s at speed %d\n", mot, (dir)? "Fwd" : "Rev", abs(speed));
 				qikSetSpeed(mot, abs(speed), dir);
 			}
 
@@ -118,8 +118,6 @@ void consoleInit() {
 //
 void consoleProcess() {
 	uint32_t inBytes = fifoSize(&usbRxFifo);
-
-	qikProcess();
 
 	if(inBytes > 0) {
 		uint32_t newLine = 0;
