@@ -78,6 +78,7 @@ void motorStop(uint8_t motor) {
 		qikSetSpeed(motor, 0 , 0);
 		motors[motor].newPos = motorGetPos(motor);
 		motors[motor].oldPos = motors[motor].newPos;
+		motors[motor].i = 0;
 		printf("Stop M%d\n", motor);
 	}
 }
