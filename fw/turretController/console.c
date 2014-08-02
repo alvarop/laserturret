@@ -135,6 +135,7 @@ void consoleInit() {
 	motorInit();
 
 	// Init Laser
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, ENABLE);
 	GPIO_Init(GPIOE, &(GPIO_InitTypeDef){GPIO_Pin_4, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
 	GPIO_SetBits(GPIOE, GPIO_Pin_4);
 }
