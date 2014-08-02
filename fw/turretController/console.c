@@ -4,6 +4,7 @@
 #include "console.h"
 #include "fifo.h"
 #include "qik.h"
+#include "motor.h"
 
 #include "stm32f4xx_conf.h"
 #include "stm32f4xx.h"
@@ -23,10 +24,12 @@ static char* argv[8];
 static void helpFn(uint8_t argc, char *argv[]);
 static void laserCmd(uint8_t argc, char *argv[]);
 static void qikCmd(uint8_t argc, char *argv[]);
+static void motorCmd(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
 	{"laser", laserCmd, "Usage: laser <0, 1>"},
 	{"qik"	, qikCmd,	"Usage: qik"},
+	{"motor", motorCmd,	"Usage: motor <motor(0-1)> <stop | position>"},
 	// Add new commands here!
 	{"help", helpFn, "Print this!"},
 	{NULL, NULL, NULL}
@@ -102,11 +105,34 @@ static void qikCmd(uint8_t argc, char *argv[]) {
 
 }
 
+static void motorCmd(uint8_t argc, char *argv[]) {
+	switch(argc) {
+		case 2: {
+			if(strcmp("stop", argv[1]) == 0) {
+				motorStop(0);
+				motorStop(1);
+			}
+
+			break;
+		}
+
+		case 3: {
+			uint8_t mot = (uint8_t)strtoul(argv[1], NULL, 10);
+			int16_t pos = strtol(argv[2], NULL, 10);
+			motorSetPos(mot, pos);
+
+			break;
+		}
+	}
+
+}
+
+
 //
 // Put any initialization code here
 //
 void consoleInit() {
-	qikInit();
+	motorInit();
 
 	// Init Laser
 	GPIO_Init(GPIOE, &(GPIO_InitTypeDef){GPIO_Pin_4, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});

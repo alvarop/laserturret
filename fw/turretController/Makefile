@@ -1,6 +1,6 @@
 # Sources
 
-SRCS = main.c stm32f4xx_it.c system_stm32f4xx.c startup_stm32f4xx.c fifo.c console.c qik.c qdecoder.c
+SRCS = main.c stm32f4xx_it.c system_stm32f4xx.c startup_stm32f4xx.c fifo.c console.c qik.c qdecoder.c motor.c
 S_SRCS = 
 
 # USB

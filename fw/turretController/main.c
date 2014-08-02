@@ -10,6 +10,7 @@
 #include "usbd_cdc_vcp.h"
 
 #include "console.h"
+#include "motor.h"
 
 #define BLINK_DELAY_MS	(500)
 
@@ -31,6 +32,7 @@ int main(void) {
 	nextBlink = tickMs + BLINK_DELAY_MS;
 	for(;;) {
 
+		motorProcess();
 		consoleProcess();
 
 		if(tickMs > nextBlink) {
