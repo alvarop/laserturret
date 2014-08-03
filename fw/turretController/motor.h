@@ -15,6 +15,8 @@ typedef enum {
 
 void motorInit();
 void motorCenter();
+void motorEnable();
+void motorDisable();
 void motorSetPIDVar(uint8_t motor, pidVar_t var, int32_t val);
 void motorSetPos(uint8_t motor, int16_t pos);
 int16_t motorGetPos(uint8_t motor);

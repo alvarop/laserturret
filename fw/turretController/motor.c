@@ -25,7 +25,7 @@ static motor_t motors[TOTAL_MOTORS];
 static uint32_t nextUpdate;
 
 static float sampleTime = (float)PERIOD_MS/1000.0;
-
+static uint32_t motorRunning = 0;
 
 void motorInit() {
 	qikInit();
@@ -39,7 +39,7 @@ void motorInit() {
 
 		motors[motor].kp = 0.5;
 		motors[motor].kd = 0;
-		motors[motor].ki = 0.001;
+		motors[motor].ki = 0;
 
 		motors[motor].oldErr = 0;
 
@@ -51,11 +51,24 @@ void motorInit() {
 		qikSetSpeed(motor, 0 , 0);
 	}
 
+	motorRunning = 1;
 	nextUpdate = tickMs += PERIOD_MS;
 }
 
 void motorCenter() {
 
+}
+
+void motorDisable() {
+	motorStop(0);
+	motorStop(1);
+	motorRunning = 0;
+}
+
+void motorEnable() {
+	motorStop(0);
+	motorStop(1);
+	motorRunning = 1;
 }
 
 void motorSetPIDVar(uint8_t motor, pidVar_t var, int32_t val) {
@@ -123,37 +136,42 @@ int16_t motorGetPos(uint8_t motor) {
 }
 
 void motorProcess() {
-	if(tickMs > nextUpdate) {
-		nextUpdate = tickMs + PERIOD_MS;
 	
-		for(uint8_t motor = 0; motor < TOTAL_MOTORS; motor++) {
-			int32_t err = motors[motor].newPos - motorGetPos(motor);
-			int16_t speed;
+	if (tickMs > nextUpdate) {
+		nextUpdate = tickMs + PERIOD_MS;
+		if(motorRunning) {
+	
+			for(uint8_t motor = 0; motor < TOTAL_MOTORS; motor++) {
+				int32_t err = motors[motor].newPos - motorGetPos(motor);
+				int16_t speed;
 
-			motors[motor].oldErr = err;
+				motors[motor].oldErr = err;
 
-			motors[motor].p = motors[motor].kp * (float)err;
-			motors[motor].d = motors[motor].kd * (float)(err - motors[motor].oldErr)/sampleTime;
-			motors[motor].i += motors[motor].ki * (float)err;
+				motors[motor].p = motors[motor].kp * (float)err;
+				motors[motor].d = motors[motor].kd * (float)(err - motors[motor].oldErr)/sampleTime;
+				motors[motor].i += motors[motor].ki * (float)err;
 
-			speed = (int16_t)(motors[motor].p + motors[motor].d + motors[motor].i);
+				speed = (int16_t)(motors[motor].p + motors[motor].d + motors[motor].i);
 
-			// Saturate
-			if(speed >= 0) {
-				if(speed > 126) {
-					speed = 126;
+				// Saturate
+				if(speed >= 0) {
+					if(speed > 126) {
+						speed = 126;
+					}
+					qikSetSpeed(motor, speed, 1);
+				} else {
+					if(speed < -126) {
+						speed = -126;
+					}
+					qikSetSpeed(motor, -speed, 0);
 				}
-				qikSetSpeed(motor, speed, 1);
-			} else {
-				if(speed < -126) {
-					speed = -126;
-				}
-				qikSetSpeed(motor, -speed, 0);
-			}
 
-			if(err) {
-				printf("%d %d %d e:%ld s:%d p:%ld d:%ld i:%ld\n", motor, motors[motor].newPos, motorGetPos(motor), err, speed, (int32_t)(motors[motor].p * 1000), (int32_t)(motors[motor].d * 1000), (int32_t)(motors[motor].i * 1000));
+				if(err) {
+					printf("%d %d %d e:%ld s:%d p:%ld d:%ld i:%ld\n", motor, motors[motor].newPos, motorGetPos(motor), err, speed, (int32_t)(motors[motor].p * 1000), (int32_t)(motors[motor].d * 1000), (int32_t)(motors[motor].i * 1000));
+				}
 			}
+		} else if(!motorRunning) {
+			printf("x: %d y:%d\n", motorGetPos(0), motorGetPos(1));
 		}
-	}
+	} 
 }

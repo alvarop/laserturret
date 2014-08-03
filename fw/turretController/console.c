@@ -111,6 +111,10 @@ static void motorCmd(uint8_t argc, char *argv[]) {
 			if(strcmp("stop", argv[1]) == 0) {
 				motorStop(0);
 				motorStop(1);
+			} else if(strcmp("dis", argv[1]) == 0) {
+				motorDisable();
+			} else if(strcmp("en", argv[1]) == 0) {
+				motorEnable();
 			} else {
 				uint8_t mot = (uint8_t)strtoul(argv[1], NULL, 10);
 				if(mot < TOTAL_MOTORS) {
@@ -167,9 +171,7 @@ static void motorCmd(uint8_t argc, char *argv[]) {
 			break;
 		}
 	}
-
 }
-
 
 //
 // Put any initialization code here
