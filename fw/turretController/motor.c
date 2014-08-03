@@ -57,7 +57,12 @@ void motorInit() {
 }
 
 void motorCenter() {
-
+	motorStop(0);
+	motorStop(1);
+	qdecoderReset(0);
+	qdecoderReset(1);
+	motorStop(0);
+	motorStop(1);
 }
 
 void motorDebug(uint8_t enabled) {
