@@ -111,6 +111,11 @@ static void motorCmd(uint8_t argc, char *argv[]) {
 			if(strcmp("stop", argv[1]) == 0) {
 				motorStop(0);
 				motorStop(1);
+			} else {
+				uint8_t mot = (uint8_t)strtoul(argv[1], NULL, 10);
+				if(mot < TOTAL_MOTORS) {
+					printf("m %d %d\n", mot, motorGetPos(mot));
+				}
 			}
 
 			break;
@@ -120,6 +125,44 @@ static void motorCmd(uint8_t argc, char *argv[]) {
 			uint8_t mot = (uint8_t)strtoul(argv[1], NULL, 10);
 			int16_t pos = strtol(argv[2], NULL, 10);
 			motorSetPos(mot, pos);
+
+			break;
+		}
+
+		case 5: {
+			uint8_t mot = (uint8_t)strtoul(argv[1], NULL, 10);
+				
+			if(strcmp("set", argv[2]) == 0)  {
+				int32_t val = strtol(argv[4], NULL, 10);
+				pidVar_t pidVar;
+
+				switch(argv[3][0]) {
+					case 'p': {
+						pidVar = pidP;
+						break;
+					}
+
+					case 'i': {
+						pidVar = pidI;
+						break;
+					}
+
+					case 'd': {
+						pidVar = pidD;
+						break;
+					}
+
+					default: {
+						pidVar = pidNone;
+					}
+				}
+
+				if(pidVar != pidNone) {
+					motorSetPIDVar(mot, pidVar, val);
+				}
+			}
+
+				
 
 			break;
 		}

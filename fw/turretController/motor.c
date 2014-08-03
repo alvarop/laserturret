@@ -37,9 +37,9 @@ void motorInit() {
 		motors[motor].maxPos = INT16_MAX;
 		motors[motor].minPos = INT16_MIN;
 
-		motors[motor].kp = 1.0;
-		motors[motor].kd = 0.0;
-		motors[motor].ki = 0.0;
+		motors[motor].kp = 0.5;
+		motors[motor].kd = 0;
+		motors[motor].ki = 0.001;
 
 		motors[motor].oldErr = 0;
 
@@ -56,6 +56,35 @@ void motorInit() {
 
 void motorCenter() {
 
+}
+
+void motorSetPIDVar(uint8_t motor, pidVar_t var, int32_t val) {
+	if(motor < TOTAL_MOTORS) {
+		switch(var) {
+			case pidP: {
+				motors[motor].kp = (float)val/1000.0;
+				printf("m%d set p=%ld.%ld\n", motor, (int32_t)(val/1000), (int32_t)(val - ((val/1000) * 1000)));
+				break;
+			}
+
+			case pidI: {
+				motors[motor].ki = (float)val/1000.0;
+				printf("m%d set i=%ld.%ld\n", motor, (int32_t)(val/1000), (int32_t)(val - ((val/1000) * 1000)));
+				break;
+			}
+
+			case pidD: {
+				motors[motor].kd = (float)val/1000.0;
+				printf("m%d set d=%ld.%ld\n", motor, (int32_t)(val/1000), (int32_t)(val - ((val/1000) * 1000)));
+				break;
+			}
+
+			case pidNone: {
+
+				break;
+			}
+		}
+	}
 }
 
 void motorSetPos(uint8_t motor, int16_t pos) {
@@ -120,6 +149,10 @@ void motorProcess() {
 					speed = -126;
 				}
 				qikSetSpeed(motor, -speed, 0);
+			}
+
+			if(err) {
+				printf("%d %d %d e:%ld s:%d p:%ld d:%ld i:%ld\n", motor, motors[motor].newPos, motorGetPos(motor), err, speed, (int32_t)(motors[motor].p * 1000), (int32_t)(motors[motor].d * 1000), (int32_t)(motors[motor].i * 1000));
 			}
 		}
 	}
