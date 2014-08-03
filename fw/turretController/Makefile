@@ -1,6 +1,6 @@
 # Sources
 
-SRCS = main.c stm32f4xx_it.c system_stm32f4xx.c startup_stm32f4xx.c fifo.c console.c servo.c stepper.c qik.c
+SRCS = main.c stm32f4xx_it.c system_stm32f4xx.c startup_stm32f4xx.c fifo.c console.c qik.c qdecoder.c motor.c
 S_SRCS = 
 
 # USB
@@ -23,8 +23,8 @@ BASEDIR := $(abspath ./)
 # binary compatible
 ifneq ($(FLOAT_TYPE), hard)
 ifneq ($(FLOAT_TYPE), soft)
-#override FLOAT_TYPE = hard
-override FLOAT_TYPE = soft
+override FLOAT_TYPE = hard
+# override FLOAT_TYPE = soft
 endif
 endif
 
@@ -47,6 +47,7 @@ LDFLAGS  = $(CPU) -mlittle-endian -mthumb-interwork -nostartfiles -Wl,--gc-secti
 ifeq ($(FLOAT_TYPE), hard)
 CFLAGS += -fsingle-precision-constant -Wdouble-promotion
 CFLAGS += -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+LDFLAGS += -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 else
 CFLAGS += -msoft-float
 endif
