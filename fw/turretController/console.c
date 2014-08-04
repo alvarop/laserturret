@@ -115,6 +115,12 @@ static void motorCmd(uint8_t argc, char *argv[]) {
 				motorDisable();
 			} else if(strcmp("en", argv[1]) == 0) {
 				motorEnable();
+			} else if(strcmp("dbgon", argv[1]) == 0) {
+				motorDebug(1);
+			} else if(strcmp("dbgoff", argv[1]) == 0) {
+				motorDebug(0);
+			} else if(strcmp("center", argv[1]) == 0) {
+				motorCenter();
 			} else {
 				uint8_t mot = (uint8_t)strtoul(argv[1], NULL, 10);
 				if(mot < TOTAL_MOTORS) {

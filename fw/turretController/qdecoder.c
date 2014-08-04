@@ -50,9 +50,13 @@ void qdecoderInit() {
 
 void qdecoderReset(uint8_t ch) {
 	if(ch == 0) {
+		TIM_Cmd(TIM8, DISABLE);
 		TIM_SetCounter(TIM8, 0);
+		TIM_Cmd(TIM8, ENABLE);
 	} else if(ch == 1) {
+		TIM_Cmd(TIM4, DISABLE);
 		TIM_SetCounter(TIM4, 0);
+		TIM_Cmd(TIM4, ENABLE);
 	}
 }
 

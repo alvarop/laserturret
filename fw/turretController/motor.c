@@ -26,6 +26,7 @@ static uint32_t nextUpdate;
 
 static float sampleTime = (float)PERIOD_MS/1000.0;
 static uint32_t motorRunning = 0;
+static uint32_t motorDebugEnabled = 0;
 
 void motorInit() {
 	qikInit();
@@ -56,7 +57,16 @@ void motorInit() {
 }
 
 void motorCenter() {
+	motorStop(0);
+	motorStop(1);
+	qdecoderReset(0);
+	qdecoderReset(1);
+	motorStop(0);
+	motorStop(1);
+}
 
+void motorDebug(uint8_t enabled) {
+	motorDebugEnabled = enabled;
 }
 
 void motorDisable() {
@@ -166,7 +176,7 @@ void motorProcess() {
 					qikSetSpeed(motor, -speed, 0);
 				}
 
-				if(err) {
+				if(motorDebugEnabled && err) {
 					printf("%d %d %d e:%ld s:%d p:%ld d:%ld i:%ld\n", motor, motors[motor].newPos, motorGetPos(motor), err, speed, (int32_t)(motors[motor].p * 1000), (int32_t)(motors[motor].d * 1000), (int32_t)(motors[motor].i * 1000));
 				}
 			}
