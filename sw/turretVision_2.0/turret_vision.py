@@ -77,10 +77,10 @@ while display.isNotDone():
             b.drawOutline(scv.Color.RED, width=4, layer= img.dl())
             b.drawOutline(scv.Color.RED, width=4, layer= segmented.dl())
         
-        matched_pairs = find_shortest_distances(curr_coords)
-        prev_coords = curr_coords[:]
-        
-        if circles:
+        if circles: 
+            matched_pairs = find_shortest_distances(curr_coords)
+            prev_coords = curr_coords[:]
+            
             future_locs = anticipate_the_future(matched_pairs)  
      
             for coords in future_locs:
