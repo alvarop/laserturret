@@ -60,36 +60,64 @@ def anticipate_the_future(matched_pairs):
    
     return future_locs 
 
-def determine_alpha_circle(moving_circles, frm_cir_coords):
-    
+def determine_alpha_circle(future_locs, frm_cir_coords):
+    '''future_locs- Of the form 
+        [[(curr_x, curr_y), (future_x, future_y), curr_radius],
+         [...], [...]]
+    '''
+
     hits_others = True
 
-    current_x, current_y = moving_circles[0]
-    future_x, future_y = moving_circles[1] 
-    radius = moving_circles[2]               
-    
     #Assuming we have circles, want to pick the one which
     #is at the front. Defined as "future direction doesn't
     #run into any others.
+    for moving_circles in future_locs:
+        current_x, current_y = moving_circles[0]
+        future_x, future_y = moving_circles[1] 
+        radius = moving_circles[2]               
+    
+        #For the moment, ignoring the radius of the current circle it's
+        #comparing against.
+        for curr_x, curr_y, _ in frm_cir_coords:
+            
+            #If we're looking at ourself.
+            if (curr_x, curr_y) == (current_x, current_y):
+                continue             
 
-    #For the moment, ignoring the radius of the current circle it's
-    #comparing against.
-    for curr_x, curr_y, _ in frm_cir_coords:
-        
-        #If we're looking at ourself.
-        if (curr_x, curr_y) == (current_x, current_y):
-            continue             
-
-        in_x_bounds = future_x-radius < curr_x < future_x + radius
-        in_y_bounds = future_y - radius < curr_x < future_y + radius              
-        if not in_x_bounds and not in_y_bounds:
-            alpha_circle = moving_circles
-            hits_others = False
+            in_x_bounds = future_x-radius < curr_x < future_x + radius
+            in_y_bounds = future_y - radius < curr_x < future_y + radius              
+            if not in_x_bounds and not in_y_bounds:
+                alpha_circle = moving_circles
+                hits_others = False
     
     if hits_others:
         alpha_circle = future_locs[0] 
 
     return alpha_circle
+
+def seek_state():
+    pass
+  
+def centering_state(curr_frm_cir, img):
+    '''curr_frm_cir - The circles found within the segemnted image. Will be
+            in the form of a tuple for each circle- (x, y, radius)
+        img- The original unmodified input image.
+    '''
+    matched_pairs = find_shortest_distances(curr_frm_cir)
+    prev_coords = curr_frm_cir[:]
+    
+    future_locs = anticipate_the_future(matched_pairs)  
+    
+    for moving_circles in future_locs:
+        #Once we do away with lime lines, can get rid of this and just call
+        #determine_alpha_circle with future_locs
+        current_x, current_y = moving_circles[0]
+        future_x, future_y = moving_circles[1] 
+
+        img.dl().line((current_x, current_y), (future_x, future_y), scv.Color.LIME, 4)
+    
+    alpha_circle = determine_alpha_circle(future_locs, curr_frm_cir)
+    print "Alpha Circle: %s" % alpha_circle
 
 print "Prev coords: %s" % prev_coords        
 while display.isNotDone():
@@ -109,34 +137,24 @@ while display.isNotDone():
     if blobs:
         
         circles = filter(lambda b: b.isCircle(0.4), blobs)
-        curr_frm_cir = map(lambda b: (b.x, b.y, b.radius()), circles)
+        
+        #Entering state where we have found circles, now want to start tracking.     
+        if circles:
+            curr_frm_cir = map(lambda b: (b.x, b.y, b.radius()), circles)
         for b in circles:
             b.drawOutline(scv.Color.RED, width=4, layer= img.dl())
             b.drawOutline(scv.Color.RED, width=4, layer= segmented.dl())
+            
+            centering_state(curr_frm_cir, img) 
+            prev_coords = curr_frm_cir[:]    
         
-        if circles: 
-            matched_pairs = find_shortest_distances(curr_frm_cir)
-            prev_coords = curr_frm_cir[:]
-            
-            future_locs = anticipate_the_future(matched_pairs)  
-            
-            hits_others = True
-            for moving_circles in future_locs:
-                #Once we do away with lime lines, can get rid of this and just call
-                #determine_alpha_circle with future_locs
-                current_x, current_y = moving_circles[0]
-                future_x, future_y = moving_circles[1] 
-                radius = moving_circles[2]               
- 
-                img.dl().line((current_x, current_y), (future_x, future_y), scv.Color.LIME, 4)
-                alpha_circle = determine_alpha_circle(moving_circles, curr_frm_cir)
-                print "Alpha Circle: %s" % alpha_circle
-
-
-        if normalDisplay:
-            img.show()
+        #There are no circles found, instead want to enter a seek state.
         else:
-            segmented.show()
-        
+            seek_state()       
 
-     
+
+    if normalDisplay:
+        img.show()
+    else:
+        segmented.show()
+
