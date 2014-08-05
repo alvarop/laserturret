@@ -7,6 +7,7 @@ import serial
 import Queue
 
 from math import sqrt
+from random import randrange
 
 display = scv.Display(resolution=(1024, 768))
 cam = scv.Camera(1, {"height": 768, "width": 1024})
@@ -18,11 +19,13 @@ MOVE_DOWN = True
 LOCK_TIMER = 0
 ALPHA_CIRCLE = None
 FEEDBACK = []
-
+SEEK_LIST = [(-2500, -2500), (2500, -2500), (-2500, 2500), (2500, 2500)]
 size = 5000
+RE_SEEK = True
 
 #CONTROLFILE = io.open(ARGS.serial, mode='wt')
-CONTROLFILE = '/dev/ttyACM0'
+CONTROLFILE = '/dev/ttyACM1'
+#CONTROLFILE = '/dev/pts/5'
 
 #
 # Read serial stream and add lines to shared queue
@@ -156,67 +159,18 @@ def determine_alpha_circle(future_locs, frm_cir_coords):
     return alpha_circle
 
 def seek_state(self, x, y):
-    #MOST. RIDUCLOUS. IF. STATEMENT. EVER.
-    if MOVE_RIGHT and x < size:
-        self.writeThread.write("m 0 %s\n" % x+100)
-    elif MOVE_RIGHT and x == size:
-        if MOVE_DOWN:
-            self.writeThread.write("m 1 %s\n" % y-1000)
-        else:
-            self.writeThread.write("m 1 %s\n" % y+1000)
-        MOVE_RIGHT = False
-    elif not MOVE_RIGHT and x > -size:
-        self.writeThread.write("m 0 %s\n" % x-100)
-    elif not MOVE_RIGHT and x == -size:
-        if MOVE_DOWN:
-            self.writeThread.write("m 1 %s\n" % y-1000)
-        else:
-            self.writeThread.write("m 1 %s\n" % y+1000)
-        MOVE_RIGHT = True
-    else:
-        print "SOMETHING HAS GONE WRONG."   
-
-def centering_state(self, curr_frm_cir, img):
-    '''curr_frm_cir - The circles found within the segemnted image. Will be
-            in the form of a tuple for each circle- (x, y, radius)
-        img- The original unmodified input image.
-    '''
-    matched_pairs = find_shortest_distances(curr_frm_cir)
-    PREV_COORDS = curr_frm_cir[:]
+    global MOVE_RIGHT, MOVE_LEFT
+    print "I AM IN SEEK STATE. Sending to (%s, %s)" % (x, y)
     
-    future_locs = anticipate_the_future(matched_pairs)  
-    
-    for moving_circles in future_locs:
-        #Once we do away with lime lines, can get rid of this and just call
-        #determine_alpha_circle with future_locs
-        current_x, current_y = moving_circles[0]
-        future_x, future_y = moving_circles[1] 
-
-        img.dl().line((current_x, current_y), (future_x, future_y), scv.Color.LIME, 4)
-    
-    alpha_circle = determine_alpha_circle(future_locs, curr_frm_cir)
-    print "Alpha Circle: %s" % alpha_circle
-    #give command here to move to alpha
-    #Alpha- [(curr_x, curr_y), (fut_x, fut_y), curr_r]
-    ALPHA_CIRCLE = alpha_circle    
-    alpha_x, alpha_y = alpha_circle[1]    
-    
-    alpha_x = (alpha_x - 512) * 5000 / 512 
-    alpha_y = (alpha_y - 384) * 5000 / 384 
-    #Move to expected positon
-    self.writeThread.write("m 0 %s\n" % alpha_x) 
-    self.writeThread.write("m 1 %s\n" % alpha_y) 
-
-    #Once we have a target we want to head to, want to make sure we stay on it,
-    #even if we lose all circles.
-    LOCK_TIMER = 30
+    self.writeThread.write("m 0 %s\n" % x)
+    self.writeThread.write("m 1 %s\n" % y)
 
 def get_turret_xy(self):
     #get x, translate it to our coordinate system
     #Will write the x coords back
     self.writeThread.write("m 0\n")
 
-    timeout = 50
+    timeout = 5000000
     while not FEEDBACK and timeout > 0:
         timeout -= 1
         continue 
@@ -224,6 +178,7 @@ def get_turret_xy(self):
         line = FEEDBACK.pop()
         print "Line reads: %s" % line
         _, _, turret_x = line.split(" ")
+        turret_x = int(turret_x.rstrip("\n"))
     #If we time out, and the return isn't propogating, return none, and
     #we'll give up on that frame and stay put for the time being       
     else:
@@ -239,12 +194,55 @@ def get_turret_xy(self):
         line = FEEDBACK.pop()
         print "Line reads: %s" % line
         _, _, turret_y = line.split(" ")
+        turret_y = int(turret_y.rstrip("\n"))
     #If we time out, and the return isn't propogating, return none, and
     #we'll give up on that frame and stay put for the time being       
     else:
         turret_y = None
 
     return turret_x, turret_y
+ 
+def centering_state(self, curr_frm_cir, img):
+    '''curr_frm_cir - The circles found within the segemnted image. Will be
+            in the form of a tuple for each circle- (x, y, radius)
+        img- The original unmodified input image.
+    '''
+
+    global LOCK_TIME    
+
+    matched_pairs = find_shortest_distances(curr_frm_cir)
+    PREV_COORDS = curr_frm_cir[:]
+    
+    future_locs = anticipate_the_future(matched_pairs)  
+    
+    for moving_circles in future_locs:
+        #Once we do away with lime lines, can get rid of this and just call
+        #determine_alpha_circle with future_locs
+        current_x, current_y = moving_circles[0]
+        future_x, future_y = moving_circles[1] 
+
+        img.dl().line((current_x, current_y), (future_x, future_y), scv.Color.LIME, 4)
+    
+    alpha_circle = determine_alpha_circle(future_locs, curr_frm_cir)
+    print "Alpha Circle: %s" % alpha_circle
+    print "Lock is currently: %s" % LOCK_TIMER
+    #give command here to move to alpha
+    #Alpha- [(curr_x, curr_y), (fut_x, fut_y), curr_r]
+    ALPHA_CIRCLE = alpha_circle    
+    alpha_x, alpha_y = alpha_circle[1]    
+    curr_x, curr_y = alpha_circle[0]
+    
+    alpha_x = (alpha_x - 512) * 5000 / 512 
+    alpha_y = (alpha_y - 384) * 5000 / 384 
+    #Move to expected positon, but slowly.
+
+    #        self.writeThread.write("m 0 %s\n" % i) 
+    #        self.writeThread.write("m 1 %s\n" % j) 
+
+    #Once we have a target we want to head to, want to make sure we stay on it,
+    #even if we lose all circles.
+    LOCK_TIMER = 300
+
 
 class turretController():
     
@@ -268,6 +266,8 @@ class turretController():
         global PREV_COORDS
         global ALPHA_CIRCLE
         global LOCK_TIMER        
+        global SEEK_LIST
+        global RE_SEEK
 
         while display.isNotDone():
             img = cam.getImage()
@@ -283,8 +283,30 @@ class turretController():
             blobs = segmented.findBlobs(minsize=200, maxsize=7000)
             circles = filter(lambda b: b.isCircle(0.4), blobs) if blobs else None
 
-            #Entering state where we have found circles, now want to start tracking.     
-            if blobs and circles:
+            #If we are currently locked on a target (have found alpha). Want to
+            #shoot it, despite having lost it.    
+            if LOCK_TIMER:
+                LOCK_TIMER -= 1
+                '''#extrapolate new position
+                expected_pos = anticipate_the_future([ALPHA_CIRCLE]) 
+                #Know there's only 1 item in here, and future loc is in 1 pos
+                fut_x, fut_y = expected_pos[0][1]
+                #Scale correctly for other system
+                fut_x = (fut_x - 512) * 5000 / 512 
+                fut_y = (fut_y - 384) * 5000 / 384 
+                #Move to expected positon'''
+                alpha_x, alpha_y = ALPHA_CIRCLE[1]    
+                curr_x, curr_y = ALPHA_CIRCLE[0]
+
+                x_inc = (alpha_x - curr_x) / 60  
+                y_inc = (alpha_y - curr_y) / 60  
+               
+                print "Sending to (%s, %s) from C:(%s,%s) to A:(%s,%s). L:%s" % (curr_x+ x_inc, curr_y +y_inc, curr_x, curr_y, alpha_x, alpha_y, LOCK_TIMER)
+                self.writeThread.write("m 0 %s\n" % curr_x + x_inc) 
+                self.writeThread.write("m 1 %s\n" % curr_y + y_inc) 
+            
+            #Entering state where we have found circles, now want to start tracking.
+            elif blobs and circles:
                 
                 curr_frm_cir = map(lambda b: (b.x, b.y, b.radius()), circles)
                
@@ -298,32 +320,38 @@ class turretController():
                     #to the next frame.
                     PREV_COORDS = curr_frm_cir[:]    
             
-            #If we are currently locked on a target (have found alpha). Want to
-            #shoot it, despite having lost it.    
-            elif LOCK_TIMER:
-                LOCK_TIMER -= 1
-                #extrapolate new position
-                expected_pos = anticipate_the_future([ALPHA_CIRCLE]) 
-                #Know there's only 1 item in here, and future loc is in 1 pos
-                fut_x, fut_y = expected_pos[0][1]
-                #Scale correctly for other system
-                fut_x = (fut_x - 512) * 5000 / 512 
-                fut_y = (fut_y - 384) * 5000 / 384 
-                #Move to expected positon
-                self.writeThread.write("m 0 %s\n" % fut_x) 
-                self.writeThread.write("m 1 %s\n" % fut_y) 
             
             #There are no circles found, and lock timer has hit 0, instead want to 
             #enter a seek state.
             else:
-                turret_x, turret_y = get_turret_xy(self)
+
+                rand_idx = randrange(4)
+                trg_x, trg_y = SEEK_LIST[rand_idx] 
                 
+                turret_x, turret_y = get_turret_xy(self)
                 #If there was a hang on either one, will return None, and want
                 #to skip this frame
                 if turret_x is None or turret_y is None:
-                    pass
+                    continue
+
+                if RE_SEEK:
+                    #Alpha- [(curr_x, curr_y), (fut_x, fut_y), curr_r]
+                    ALPHA_CIRCLE = [(turret_x, turret_y), (trg_x, trg_y), None]
+                    print "Setting seek alpha %s" % ALPHA_CIRCLE
+                    RE_SEEK = False
                 else:
-                    seek_state(self, turret_x, turret_y)       
+                    #seek_state(self, turret_x, turret_y)       
+                    alpha_x, alpha_y = ALPHA_CIRCLE[1]    
+                    curr_x, curr_y = ALPHA_CIRCLE[0]
+
+                    x_inc = (alpha_x - curr_x) / 60  
+                    y_inc = (alpha_y - curr_y) / 60  
+                    print "T:%s, T_I:%s" % (type(turret_x), type(x_inc))
+                    print "Move from %s, %s by %s, and %s" % (turret_x, turret_y, x_inc, y_inc) 
+                    print "Seeking to (%s, %s) from C:(%s,%s) to A:(%s,%s). L:%s" % (curr_x+ x_inc, curr_y +y_inc, curr_x, curr_y, alpha_x, alpha_y, LOCK_TIMER)
+                    
+                    self.writeThread.write("m 0 %s\n" % str(turret_x + x_inc)) 
+                    self.writeThread.write("m 1 %s\n" % str(turret_y + y_inc)) 
 
             if normalDisplay:
                 img.show()
