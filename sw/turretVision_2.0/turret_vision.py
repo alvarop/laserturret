@@ -14,13 +14,22 @@ display = scv.Display(resolution=(960,720))
 cam = scv.Camera(1, {"height": 768, "width": 1024})
 normalDisplay = True
 
-prev_coords = [(0,0, 0)]
+prev_coords = [(0, 0, 0)]
+MOVE_RIGHT = True
+MOVE_DOWN = True
+LOCK_TIMER = 0
+ALPHA_CIRCLE = None
 
 #CONTROLFILE = io.open(ARGS.serial, mode='wt')
+CONTROLFILE = io.open('/dev/ttyACM0', 'wt')
+
+def get_turret_coords():
+    pass 
 
 def find_shortest_distances(curr):
     '''Naively assume that for a single coord, shortest distance
-    will be a 1-to-1 for all in both curr set and prev set.'''
+    will be a 1-to-1 for all in both curr set and prev set.
+    curr- [(x, y, radius), (x2, y2, radius), ...]'''
     master_set = []
    
     #Don't need the radius for now. 
@@ -42,10 +51,12 @@ def find_shortest_distances(curr):
     return master_set
 
 def anticipate_the_future(matched_pairs):
-
+    '''matched pairs- list of x, y coordinate pairs, and the radius of most
+    recent circle.'''
     print "Matched: %s" % matched_pairs
     future_locs = []
 
+    #Coord set- [(x1, y1), (x2, y2), radius2]
     for coord_set in matched_pairs:
     
         first_x, first_y = coord_set[0]
@@ -57,7 +68,8 @@ def anticipate_the_future(matched_pairs):
 
         print("C_X:%s, C_Y:%s, F_X:%s, F_Y:%s" % (sec_x, sec_y, new_x, new_y))          
         future_locs.append([(sec_x,sec_y), (new_x, new_y), r])
-   
+    
+    #Future locs- [[(x_cur, y_cur), (x_fut, y_fut), r_cur], ...]
     return future_locs 
 
 def determine_alpha_circle(future_locs, frm_cir_coords):
@@ -95,9 +107,13 @@ def determine_alpha_circle(future_locs, frm_cir_coords):
 
     return alpha_circle
 
-def seek_state():
-    pass
-  
+def seek_state(turret_x, turret_y):
+    #MOST. RIDUCLOUS. IF. STATEMENT. EVER.
+        
+
+ 
+    #For temporary.  
+    pass 
 def centering_state(curr_frm_cir, img):
     '''curr_frm_cir - The circles found within the segemnted image. Will be
             in the form of a tuple for each circle- (x, y, radius)
@@ -118,6 +134,12 @@ def centering_state(curr_frm_cir, img):
     
     alpha_circle = determine_alpha_circle(future_locs, curr_frm_cir)
     print "Alpha Circle: %s" % alpha_circle
+    #give command here to move to alpha
+    #Alpha- [(curr_x, curr_y), (fut_x, fut_y), curr_r]
+    ALPHA_CIRCLE = alpha_circle    
+    #Once we have a target we want to head to, want to make sure we stay on it,
+    #even if we lose all circles.
+    LOCK_TIMER = 30
 
 print "Prev coords: %s" % prev_coords        
 while display.isNotDone():
@@ -133,25 +155,39 @@ while display.isNotDone():
     segmented = img.colorDistance(scv.Color.WHITE).dilate(2).binarize(25)
     #segmented = np.where(segmented < 200, 0, segmented)
     blobs = segmented.findBlobs(minsize=200, maxsize=7000)
+    circles = filter(lambda b: b.isCircle(0.4), blobs) if blobs else None
 
-    if blobs:
+    #Entering state where we have found circles, now want to start tracking.     
+    if blobs and circles:
         
-        circles = filter(lambda b: b.isCircle(0.4), blobs)
-        
-        #Entering state where we have found circles, now want to start tracking.     
-        if circles:
-            curr_frm_cir = map(lambda b: (b.x, b.y, b.radius()), circles)
+        curr_frm_cir = map(lambda b: (b.x, b.y, b.radius()), circles)
+       
         for b in circles:
             b.drawOutline(scv.Color.RED, width=4, layer= img.dl())
             b.drawOutline(scv.Color.RED, width=4, layer= segmented.dl())
             
             centering_state(curr_frm_cir, img) 
+            
+            #Set the previous coordinates to the current, since we're moving
+            #to the next frame.
             prev_coords = curr_frm_cir[:]    
-        
-        #There are no circles found, instead want to enter a seek state.
-        else:
-            seek_state()       
-
+    
+    #If we are currently locked on a target (have found alpha). Want to
+    #shoot it, despite having lost it.    
+    elif LOCK_TIMER:
+        LOCK_TIMER -= 1
+        #extrapolate new position
+        expected_pos = anticipate_the_future([ALPHA_CIRCLE]) 
+        #Move to expected positon
+        pass 
+    
+    #There are no circles found, and lock timer has hit 0, instead want to 
+    #enter a seek state.
+    else:
+        #get x, translate it to our coordinate system
+        turret_x, turret_y =  get_turret_coords()
+        seek_state(turret_x, turret_y)       
+         
 
     if normalDisplay:
         img.show()
