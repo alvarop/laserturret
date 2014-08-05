@@ -35,8 +35,8 @@ void motorInit() {
 	for(uint8_t motor = 0; motor < TOTAL_MOTORS; motor++) {
 		motors[motor].newPos = 0;
 		motors[motor].oldPos = 0;
-		motors[motor].maxPos = INT16_MAX;
-		motors[motor].minPos = INT16_MIN;
+		motors[motor].maxPos = 5000;
+		motors[motor].minPos = -5000;
 
 		motors[motor].kp = 0.5;
 		motors[motor].kd = 0;
@@ -121,7 +121,7 @@ void motorSetPos(uint8_t motor, int16_t pos) {
 		}
 
 		motors[motor].newPos = pos;
-		printf("M%d = %d\n", motor, pos);
+		// printf("M%d = %d\n", motor, pos);
 	}
 }
 
