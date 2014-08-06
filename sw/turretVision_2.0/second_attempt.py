@@ -65,7 +65,40 @@ class serialWriteThread(threading.Thread):
         self.outDataAvailable.set()
 
 def centering(args):
+
+    self = args['self']
     print "Now centering on a target."
+    
+    closest_trg = args['closest']
+    trg_x, trg_y = closest_trg.x, closest_trg.y
+
+    seg = args['seg']
+    seg.dl().circle((trg_x, trg_y), closest_trg.radius(), scv.Color.RED, width=4)
+
+    screen_x, screen_y = args['s_x'], args['s_y']
+
+    x_offset = trg_x - screen_x/2
+    y_offset = trg_y - screen_y/2 
+    print "Our trg is at : %s, %s" % (trg_x, trg_y)    
+    print "Offsets at : %s, %s" % (x_offset, y_offset)    
+ 
+    x_delta = x_offset * .1
+    y_delta = -y_offset * .1
+ 
+    args['t_x'] += x_delta    
+    args['t_y'] += y_delta    
+    print "Our turret should be at : %s, %s" % (args['t_x'], args['t_y'])    
+   
+    #Position that we're sending it to is now "relative" to where we think
+    #it is. Can adjust after.
+    self.writeThread.write("\n")
+    self.writeThread.write("m 0 %s\n" % args['t_x'])
+    self.writeThread.write("\n")
+    self.writeThread.write("m 1 %s\n" % args['t_y'])
+
+    #Redetect the closest circle.
+    seeking_target(args)
+ 
     pass
 def idle(args):
     pass
@@ -78,11 +111,16 @@ def seeking_target(args):
     if circles:
             
         #Closest circle to the center of the image
-        closest_circle = circles.sortDistance()[0]
-        print closest_circle
+        closest_circle = circles.sortDistance()
+        print "Closest circles are: %s" % list(closest_circle)
+        closest_circle = closest_circle[0]
         args['closest'] = closest_circle
 
         STATE = 'centering'
+    else:
+        STATE = 'seeking_trg'
+        if 'closest' in args:
+            del args['closest']
 
 def shooting():
     pass
@@ -107,34 +145,43 @@ class turretController():
         self.writeThread.start()
 
         self.writeThread.write("\n")
-        self.writeThread.write("m clear\n")
+        self.writeThread.write("m center\n")
          
     def main(self):
 
         global STATE       
- 
-        display = scv.Display(resolution=(1024, 768))
+
+        screen_x, screen_y = 1024, 768 
+        display = scv.Display(resolution=(screen_x, screen_y))
         cam = scv.Camera(1, {"height": 768, "width": 1024})
         normalDisplay = True
-       
+        turret_x, turret_y = 0, 0    
+   
         #State dictionary
         states = {'centering': centering, 'idle': idle, 
                 'seeking_trg': seeking_target, 'shooting': shooting,
                 'victory!': victory_dance
                 }
         #Dictionary of arguments that will be passed to each state.
-        args = {}
+        args = {'t_x': turret_x, 't_y': turret_y, 
+                's_x': screen_x, 's_y': screen_y,
+                'self': self}
  
         while display.isNotDone():
             img = cam.getImage()
-
             segmented = img.colorDistance(scv.Color.WHITE).dilate(2).binarize(25)
+            args['img'] = img
+            args['seg'] = segmented
+
             #segmented = np.where(segmented < 200, 0, segmented)
-            blobs = segmented.findBlobs(minsize=200, maxsize=7000)
-            circles = blobs.filter([b.isCircle() for b in blobs])
-            args['circles'] = circles
-    
-            print "Swith to %s" % STATE 
+            blobs = segmented.findBlobs(minsize=100, maxsize=7000)
+            if blobs:
+                circles = blobs.filter([b.isCircle(0.3) for b in blobs])
+                args['circles'] = circles
+            else:
+                args['circles'] = []   
+ 
+            print "Switch to %s" % STATE 
             states[STATE](args)
             
             if display.mouseLeft and \
