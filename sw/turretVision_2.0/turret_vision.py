@@ -16,15 +16,14 @@ normalDisplay = True
 PREV_COORDS = [(0, 0, 0)]
 MOVE_RIGHT = True
 MOVE_DOWN = True
-LOCK_TIMER = 0
+LOCK_TIMER, LOCK_AMT = 0, 100
 ALPHA_CIRCLE = None
 FEEDBACK = []
-SEEK_LIST = [(-2500, -2500), (2500, -2500), (-2500, 2500), (2500, 2500)]
-size = 5000
+SEEK_LIST = [((0, 0), (1024, 0), (1024, 1024), (0, 1024)]
 RE_SEEK = True
 
 #CONTROLFILE = io.open(ARGS.serial, mode='wt')
-CONTROLFILE = '/dev/ttyACM1'
+CONTROLFILE = '/dev/ttyACM2'
 #CONTROLFILE = '/dev/pts/5'
 
 #
@@ -162,39 +161,50 @@ def seek_state(self, x, y):
     global MOVE_RIGHT, MOVE_LEFT
     print "I AM IN SEEK STATE. Sending to (%s, %s)" % (x, y)
     
+    self.writeThread.write("\n")
     self.writeThread.write("m 0 %s\n" % x)
+    self.writeThread.write("\n")
     self.writeThread.write("m 1 %s\n" % y)
 
 def get_turret_xy(self):
+
     #get x, translate it to our coordinate system
     #Will write the x coords back
-    self.writeThread.write("m 0\n")
+    self.writeThread.write("m 0 \n")
 
     timeout = 5000000
     while not FEEDBACK and timeout > 0:
         timeout -= 1
         continue 
     if FEEDBACK:       
-        line = FEEDBACK.pop()
-        print "Line reads: %s" % line
-        _, _, turret_x = line.split(" ")
-        turret_x = int(turret_x.rstrip("\n"))
+        try:
+            #At beginning, turret doesn't always know where it is.
+            line = FEEDBACK.pop()
+            print "Line reads: %s" % line
+            _, _, turret_x = line.split(" ")
+            turret_x = int(turret_x.rstrip("\n"))
+        except ValueError:
+            turret_x = 0 
     #If we time out, and the return isn't propogating, return none, and
     #we'll give up on that frame and stay put for the time being       
     else:
         turret_x = None
 
     #Get Y
-    self.writeThread.write("m 1\n")
-    timeout = 50
+    self.writeThread.write("\n")
+    self.writeThread.write("m 1 \n")
+    timeout = 5000000
     while not FEEDBACK and timeout > 0:
         timeout -= 1
         continue 
     if FEEDBACK:       
-        line = FEEDBACK.pop()
-        print "Line reads: %s" % line
-        _, _, turret_y = line.split(" ")
-        turret_y = int(turret_y.rstrip("\n"))
+        try:
+            line = FEEDBACK.pop()
+            print "Line reads: %s" % line
+            _, _, turret_y = line.split(" ")
+            turret_y = int(turret_y.rstrip("\n"))
+        except ValueError:
+            turret_y = 0    
     #If we time out, and the return isn't propogating, return none, and
     #we'll give up on that frame and stay put for the time being       
     else:
@@ -208,7 +218,8 @@ def centering_state(self, curr_frm_cir, img):
         img- The original unmodified input image.
     '''
 
-    global LOCK_TIME    
+    global LOCK_TIMER    
+    global ALPHA_CIRCLE
 
     matched_pairs = find_shortest_distances(curr_frm_cir)
     PREV_COORDS = curr_frm_cir[:]
@@ -228,21 +239,9 @@ def centering_state(self, curr_frm_cir, img):
     print "Lock is currently: %s" % LOCK_TIMER
     #give command here to move to alpha
     #Alpha- [(curr_x, curr_y), (fut_x, fut_y), curr_r]
-    ALPHA_CIRCLE = alpha_circle    
-    alpha_x, alpha_y = alpha_circle[1]    
-    curr_x, curr_y = alpha_circle[0]
+    ALPHA_CIRCLE = alpha_circle[:]    
     
-    alpha_x = (alpha_x - 512) * 5000 / 512 
-    alpha_y = (alpha_y - 384) * 5000 / 384 
-    #Move to expected positon, but slowly.
-
-    #        self.writeThread.write("m 0 %s\n" % i) 
-    #        self.writeThread.write("m 1 %s\n" % j) 
-
-    #Once we have a target we want to head to, want to make sure we stay on it,
-    #even if we lose all circles.
-    LOCK_TIMER = 300
-
+    LOCK_TIMER = LOCK_AMT
 
 class turretController():
     
@@ -268,6 +267,9 @@ class turretController():
         global LOCK_TIMER        
         global SEEK_LIST
         global RE_SEEK
+        
+        x_inc = 0
+        y_inc = 0
 
         while display.isNotDone():
             img = cam.getImage()
@@ -286,24 +288,45 @@ class turretController():
             #If we are currently locked on a target (have found alpha). Want to
             #shoot it, despite having lost it.    
             if LOCK_TIMER:
+                #Get the current position, and translate it back into our scale
+                curr_x, curr_y = get_turret_xy(self)
+                curr_x = (curr_x / 5000 * 512) + 512 
+                curr_y = (curr_y / 5000 * 384) + 384
+                print "Curr_Pos- %s, %s" % (curr_x, curr_y)
+                
+                if LOCK_TIMER == LOCK_AMT:
+                    #Want to do the increment calculation up front so that it
+                    #can just step towards it on the lock steps. When it gets there,
+                    #change to follow.
+                    fut_alpha_x, fut_alpha_y = ALPHA_CIRCLE[1]        
+           
+                    x_inc = (fut_alpha_x - curr_x) / 5
+                    y_inc = (fut_alpha_y - curr_y) / 5
+     
                 LOCK_TIMER -= 1
-                '''#extrapolate new position
-                expected_pos = anticipate_the_future([ALPHA_CIRCLE]) 
-                #Know there's only 1 item in here, and future loc is in 1 pos
-                fut_x, fut_y = expected_pos[0][1]
-                #Scale correctly for other system
-                fut_x = (fut_x - 512) * 5000 / 512 
-                fut_y = (fut_y - 384) * 5000 / 384 
-                #Move to expected positon'''
-                alpha_x, alpha_y = ALPHA_CIRCLE[1]    
-                curr_x, curr_y = ALPHA_CIRCLE[0]
 
-                x_inc = (alpha_x - curr_x) / 60  
-                y_inc = (alpha_y - curr_y) / 60  
-               
-                print "Sending to (%s, %s) from C:(%s,%s) to A:(%s,%s). L:%s" % (curr_x+ x_inc, curr_y +y_inc, curr_x, curr_y, alpha_x, alpha_y, LOCK_TIMER)
-                self.writeThread.write("m 0 %s\n" % curr_x + x_inc) 
-                self.writeThread.write("m 1 %s\n" % curr_y + y_inc) 
+                #Getposition we would want it to move to.
+                move_x = curr_x + x_inc
+                move_y = curr_y + y_inc     
+                print "Our move: %s, %s" % (move_x, move_y)                 
+ 
+                #Translate back.
+                move_x = (move_x - 512) * 5000 / 512
+                move_y = (move_y - 384) * 5000 / 384
+                print "Turret move: %s, %s" % (move_x, move_y)                 
+ 
+                print "Alpha in lock: %s" % ALPHA_CIRCLE
+                print "Increments of %s, %s" % (x_inc, y_inc)
+                print "Sending to (%s, %s) from C:(%s,%s) . L:%s" % (move_x, move_y, curr_x, curr_y, LOCK_TIMER)
+                '''self.writeThread.write("\n")
+                self.writeThread.write("m 0 %s\n" % str(curr_x + x_inc))
+                self.writeThread.write("\n")
+                self.writeThread.write("m 1 %s\n" % str(curr_y + y_inc))
+                '''
+                self.writeThread.write("\n")
+                self.writeThread.write("m 0 %s\n" % move_x)
+                self.writeThread.write("\n")
+                self.writeThread.write("m 1 %s\n" % move_y)
             
             #Entering state where we have found circles, now want to start tracking.
             elif blobs and circles:
@@ -319,16 +342,20 @@ class turretController():
                     #Set the previous coordinates to the current, since we're moving
                     #to the next frame.
                     PREV_COORDS = curr_frm_cir[:]    
-            
+                #Want to reset so next time we have to seek we can start again.
+                RE_SEEK = True            
             
             #There are no circles found, and lock timer has hit 0, instead want to 
             #enter a seek state.
             else:
-
                 rand_idx = randrange(4)
                 trg_x, trg_y = SEEK_LIST[rand_idx] 
                 
+                #Get current position and translate to us
                 turret_x, turret_y = get_turret_xy(self)
+                turret_x = (turret_x / 5000 * 512) + 512 
+                turret_y = (turret_y / 5000 * 384) + 384
+                 
                 #If there was a hang on either one, will return None, and want
                 #to skip this frame
                 if turret_x is None or turret_y is None:
@@ -344,13 +371,14 @@ class turretController():
                     alpha_x, alpha_y = ALPHA_CIRCLE[1]    
                     curr_x, curr_y = ALPHA_CIRCLE[0]
 
-                    x_inc = (alpha_x - curr_x) / 60  
-                    y_inc = (alpha_y - curr_y) / 60  
+                    x_inc = (alpha_x - curr_x) / 30  
+                    y_inc = (alpha_y - curr_y) / 30  
                     print "T:%s, T_I:%s" % (type(turret_x), type(x_inc))
                     print "Move from %s, %s by %s, and %s" % (turret_x, turret_y, x_inc, y_inc) 
                     print "Seeking to (%s, %s) from C:(%s,%s) to A:(%s,%s). L:%s" % (curr_x+ x_inc, curr_y +y_inc, curr_x, curr_y, alpha_x, alpha_y, LOCK_TIMER)
-                    
+                    self.writeThread.write("\n")
                     self.writeThread.write("m 0 %s\n" % str(turret_x + x_inc)) 
+                    self.writeThread.write("\n")
                     self.writeThread.write("m 1 %s\n" % str(turret_y + y_inc)) 
 
             if normalDisplay:
