@@ -19,11 +19,11 @@ MOVE_DOWN = True
 LOCK_TIMER, LOCK_AMT = 0, 100
 ALPHA_CIRCLE = None
 FEEDBACK = []
-SEEK_LIST = [((0, 0), (1024, 0), (1024, 1024), (0, 1024)]
+SEEK_LIST = [(340, 340), (680, 340), (680, 680), (340, 680)]
 RE_SEEK = True
 
 #CONTROLFILE = io.open(ARGS.serial, mode='wt')
-CONTROLFILE = '/dev/ttyACM2'
+CONTROLFILE = '/dev/ttyACM0'
 #CONTROLFILE = '/dev/pts/5'
 
 #
@@ -258,7 +258,10 @@ class turretController():
         self.writeThread = serialWriteThread(stream)
         self.writeThread.daemon = True
         self.writeThread.start()
-    
+
+        self.writeThread.write("\n")
+        self.writeThread.write("m clear\n")
+         
     def main(self):
         #Want to use all my globals in here.
         global display, cam, normalDisplay
@@ -360,11 +363,17 @@ class turretController():
                 #to skip this frame
                 if turret_x is None or turret_y is None:
                     continue
-
+                
+                ALPHA_CIRCLE = [(turret_x, turret_y), (trg_x, trg_y), None]
+                print "Setting seek alpha %s" % ALPHA_CIRCLE
+                LOCK_TIMER = LOCK_AMT
+                continue
+                '''P
                 if RE_SEEK:
                     #Alpha- [(curr_x, curr_y), (fut_x, fut_y), curr_r]
                     ALPHA_CIRCLE = [(turret_x, turret_y), (trg_x, trg_y), None]
                     print "Setting seek alpha %s" % ALPHA_CIRCLE
+                    LOCK_TIMER = LOCK_AMT
                     RE_SEEK = False
                 else:
                     #seek_state(self, turret_x, turret_y)       
@@ -380,7 +389,7 @@ class turretController():
                     self.writeThread.write("m 0 %s\n" % str(turret_x + x_inc)) 
                     self.writeThread.write("\n")
                     self.writeThread.write("m 1 %s\n" % str(turret_y + y_inc)) 
-
+                '''
             if normalDisplay:
                 img.show()
             else:

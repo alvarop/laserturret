@@ -64,31 +64,46 @@ class serialWriteThread(threading.Thread):
         self.outQueueLock.release()
         self.outDataAvailable.set()
 
+def shooting(self, turn_on):
+
+    if turn_on:
+        self.writeThread.write("laser 1\n")
+        print "Firing"
+    else:
+        self.writeThread.write("laser 0\n")
+        print "Not firing."
 def centering(args):
 
     self = args['self']
     print "Now centering on a target."
     
-    closest_trg = args['closest']
-    trg_x, trg_y = closest_trg.x, closest_trg.y
-
-    seg = args['seg']
-    seg.dl().circle((trg_x, trg_y), closest_trg.radius(), scv.Color.RED, width=4)
-
     screen_x, screen_y = args['s_x'], args['s_y']
+    closest_trg = args['closest']
+    trg_x, trg_y, trg_r = closest_trg.x, closest_trg.y, closest_trg.radius()
+
+    #If we're within the bounds of the target, KILL.
+    dist_frm_center = sqrt((trg_x-screen_x/2)**2 + (trg_y-screen_y/2)**2)
+    print "Dist is %s and r is %s" % (dist_frm_center, trg_r)
+    if dist_frm_center <= trg_r:    
+        shooting(self, True)
+    else:
+        shooting(self, False)       
+
+    args['seg'].dl().circle((trg_x, trg_y), closest_trg.radius(), scv.Color.RED, width=4)
 
     x_offset = trg_x - screen_x/2
     y_offset = trg_y - screen_y/2 
     print "Our trg is at : %s, %s" % (trg_x, trg_y)    
     print "Offsets at : %s, %s" % (x_offset, y_offset)    
  
-    x_delta = x_offset * .1
-    y_delta = -y_offset * .1
+    x_delta = x_offset * .5
+    #The motor moves negatve when given positive, and pos when given negative.
+    y_delta = -y_offset * .5
  
     args['t_x'] += x_delta    
     args['t_y'] += y_delta    
     print "Our turret should be at : %s, %s" % (args['t_x'], args['t_y'])    
-   
+  
     #Position that we're sending it to is now "relative" to where we think
     #it is. Can adjust after.
     self.writeThread.write("\n")
@@ -122,8 +137,6 @@ def seeking_target(args):
         if 'closest' in args:
             del args['closest']
 
-def shooting():
-    pass
 def victory_dance():
     pass
 
@@ -159,8 +172,7 @@ class turretController():
    
         #State dictionary
         states = {'centering': centering, 'idle': idle, 
-                'seeking_trg': seeking_target, 'shooting': shooting,
-                'victory!': victory_dance
+                'seeking_trg': seeking_target, 'victory!': victory_dance
                 }
         #Dictionary of arguments that will be passed to each state.
         args = {'t_x': turret_x, 't_y': turret_y, 
