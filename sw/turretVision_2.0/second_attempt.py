@@ -11,9 +11,8 @@ from random import randrange
 
 STATE = 'idle'
 
-#CONTROLFILE = io.open(ARGS.serial, mode='wt')
+FEEDBACK = []
 CONTROLFILE = '/dev/ttyACM0'
-#CONTROLFILE = '/dev/pts/5'
 
 #
 # Read serial stream and add lines to shared queue
@@ -65,12 +64,26 @@ class serialWriteThread(threading.Thread):
         self.outQueueLock.release()
         self.outDataAvailable.set()
 
-def centering():
+def centering(args):
+    print "Now centering on a target."
     pass
-def idle():
+def idle(args):
     pass
-def seeking_target():
-    pass
+def seeking_target(args):
+    global STATE
+
+    print "Now seeking a target!"
+ 
+    circles = args['circles']
+    if circles:
+            
+        #Closest circle to the center of the image
+        closest_circle = circles.sortDistance()[0]
+        print closest_circle
+        args['closest'] = closest_circle
+
+        STATE = 'centering'
+
 def shooting():
     pass
 def victory_dance():
@@ -109,25 +122,31 @@ class turretController():
                 'seeking_trg': seeking_target, 'shooting': shooting,
                 'victory!': victory_dance
                 }
-
+        #Dictionary of arguments that will be passed to each state.
+        args = {}
  
         while display.isNotDone():
             img = cam.getImage()
-            #img = cam.getImage().flipHorizontal()
-
-            if display.mouseRight:
-                break
-            if display.mouseLeft:
-                normalDisplay = not(normalDisplay)
 
             segmented = img.colorDistance(scv.Color.WHITE).dilate(2).binarize(25)
             #segmented = np.where(segmented < 200, 0, segmented)
             blobs = segmented.findBlobs(minsize=200, maxsize=7000)
-            circles = filter(lambda b: b.isCircle(0.4), blobs) if blobs else None
-
-            states[STATE]() 
+            circles = blobs.filter([b.isCircle() for b in blobs])
+            args['circles'] = circles
+    
+            print "Swith to %s" % STATE 
+            states[STATE](args)
+            
+            if display.mouseLeft and \
+                (display.mouseX < 50 and display.mouseY < 50):
+                STATE = 'seeking_trg'
+                print "Chg to seeking." 
+            if display.mouseRight:
+                break
+            if display.mouseLeft:
+                normalDisplay = not(normalDisplay)
         
-
+            #Determines which type of picture is shown.
             if normalDisplay:
                 img.show()
             else:
