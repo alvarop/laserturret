@@ -127,7 +127,21 @@ def centering(args):
     y_delta = -y_offset * .5
  
     args['t_x'] += x_delta    
-    args['t_y'] += y_delta    
+    args['t_y'] += y_delta
+
+    if args['t_x'] > 5000:
+        args['t_x'] = 5000
+
+    if args['t_x'] < -5000:
+        args['t_x'] = -5000
+
+
+    if args['t_y'] > 5000:
+        args['t_y'] = 5000
+
+    if args['t_y'] < -5000:
+        args['t_y'] = -5000
+
     print "Our turret should be at : %s, %s" % (args['t_x'], args['t_y'])    
   
     #Position that we're sending it to is now "relative" to where we think
@@ -185,6 +199,8 @@ class turretController():
 
         self.writeThread.write("\n")
         self.writeThread.write("m center\n")
+        self.writeThread.write("m 0 set p 700\n")
+        self.writeThread.write("m 1 set p 700\n")
          
     def main(self):
 
@@ -197,9 +213,6 @@ class turretController():
         cv2.createTrackbar('Hue', 'sliders', 105, 180, nothing)
         cv2.createTrackbar('x', 'sliders', 127, 300, nothing)
         cv2.createTrackbar('y', 'sliders', 194, 300, nothing)
-        # cv2.createTrackbar('Saturation', 'sliders', 100, 255, nothing) 
-        # cv2.createTrackbar('Value', 'sliders', 100, 255, nothing) 
-        # cv2.createTrackbar('Diff', 'sliders', 0, 50, nothing) 
 
         screen_x, screen_y = 1024, 768 
         display = scv.Display(resolution=(screen_x, screen_y))
