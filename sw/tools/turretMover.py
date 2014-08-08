@@ -4,6 +4,7 @@ import sys
 import termios
 import contextlib
 import serial
+import threading
 
 left = 0x61
 right = 0x64
@@ -16,27 +17,48 @@ posX = 0
 posY = 0
 laserOn = 0
 
+class serialReadThread(threading.Thread):
+    def __init__(self, inStream):
+        super(serialReadThread, self).__init__()
+        self.stream = inStream
+        self.running = 1
+
+    def run(self):
+        while self.running:
+            try:
+                line = self.stream.readline(50)
+                if line:
+                    print line
+            except serial.SerialException:
+                print "serial error"
+
 def moveRight():
 	global posX
 	posX = posX + 50
 	stream.write('m 0 ' + str(posX) + '\n')
+	print('m 0 ' + str(posX) + '\n')
 
 def moveLeft():
 	global posX
 	posX = posX - 50
-	stream.write('m 0 ' + str(posX) + '\n')	
+	stream.write('m 0 ' + str(posX) + '\n')
+	print('m 0 ' + str(posX) + '\n')	
 
 def moveUp():
 	global posY
 	posY = posY + 50
 	stream.write('m 1 ' + str(posY) + '\n')
+	print('m 1 ' + str(posY) + '\n')
 
 def moveDown():
 	global posY
 	posY = posY - 50
-	stream.write('m 1 ' + str(posY) + '\n')	
+	stream.write('m 1 ' + str(posY) + '\n')
+	print('m 1 ' + str(posY) + '\n')	
 
 def center():
+	global posX
+	global posY
 	stream.write('m center\n')
 	posX = 0
 	posY = 0
@@ -75,6 +97,16 @@ if len(sys.argv) < 2:
 streamFileName = sys.argv[1]
 
 stream = serial.Serial(streamFileName)
+
+# Start readThread as daemon so it will automatically close on program exit
+readThread = serialReadThread(stream)
+readThread.daemon = True
+readThread.start()
+
+center()
+
+# stream.write('m dbgon\n')
+
 print ''
 print 'Use WASD to move the turret.'
 print 'Press enter to set the new origin (center)'
@@ -97,3 +129,5 @@ with raw_mode(sys.stdin):
 
 	except (KeyboardInterrupt, EOFError):
 		pass
+
+stream.write('m dbgoff\n')
