@@ -7,6 +7,7 @@ import threading
 import serial
 import Queue
 import numpy as np
+import time 
 
 from math import sqrt
 from random import randrange
@@ -17,6 +18,10 @@ FEEDBACK = []
 CONTROLFILE = '/dev/ttyACM0'
 
 x_off, y_off = 0, 0
+msTime = lambda: int(round(time.time() * 1000))
+
+time_allowed = msTime()
+justShot = False
 
 def nothing(x):
     pass
@@ -82,6 +87,9 @@ def shooting(self, turn_on):
 
 def centering(args):
     global x_off, y_off
+    global time_allowed
+    global justShot
+
     self = args['self']
     print "Now centering on a target."
     
@@ -92,13 +100,19 @@ def centering(args):
     x_center = screen_x/2 + x_off
     y_center = screen_y/2 + y_off
 
-    #If we're within the bounds of the target, KILL.
-    dist_frm_center = sqrt((trg_x-x_center)**2 + (trg_y-y_center)**2)
-    print "Dist is %s and r is %s" % (dist_frm_center, trg_r)
-    if dist_frm_center <= trg_r:    
-        shooting(self, True)
-    else:
-        shooting(self, False)       
+    if msTime() > time_allowed:
+        #If we're within the bounds of the target, KILL.
+        dist_frm_center = sqrt((trg_x-x_center)**2 + (trg_y-y_center)**2)
+        print "Dist is %s and r is %s" % (dist_frm_center, trg_r)
+        if dist_frm_center <= trg_r and not justShot:    
+            shooting(self, True)
+            time_allowed = msTime() + 500
+            justShot = True
+        else:
+            shooting(self, False)
+            if justShot:
+                justShot = False      
+                time_allowed = msTime() + 1500
 
     if closest_trg.radius() > 2:
         args['seg'].dl().circle((trg_x, trg_y), closest_trg.radius(), scv.Color.RED, width=2)
@@ -181,8 +195,8 @@ class turretController():
 
         cv2.namedWindow('sliders')
         cv2.createTrackbar('Hue', 'sliders', 105, 180, nothing)
-        cv2.createTrackbar('x', 'sliders', 150, 300, nothing)
-        cv2.createTrackbar('y', 'sliders', 150, 300, nothing)
+        cv2.createTrackbar('x', 'sliders', 127, 300, nothing)
+        cv2.createTrackbar('y', 'sliders', 194, 300, nothing)
         # cv2.createTrackbar('Saturation', 'sliders', 100, 255, nothing) 
         # cv2.createTrackbar('Value', 'sliders', 100, 255, nothing) 
         # cv2.createTrackbar('Diff', 'sliders', 0, 50, nothing) 
