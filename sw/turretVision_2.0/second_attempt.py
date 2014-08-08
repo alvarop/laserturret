@@ -1,10 +1,12 @@
 '''Webcams learn to detect blue circles, take two.'''
 
 import SimpleCV as scv
+import cv2
 import sys
 import threading
 import serial
 import Queue
+import numpy as np
 
 from math import sqrt
 from random import randrange
@@ -13,6 +15,9 @@ STATE = 'idle'
 
 FEEDBACK = []
 CONTROLFILE = '/dev/ttyACM0'
+
+def nothing(x):
+    pass
 
 #
 # Read serial stream and add lines to shared queue
@@ -162,11 +167,19 @@ class turretController():
          
     def main(self):
 
-        global STATE       
+        global STATE
+
+        blankimg = np.zeros([300, 512, 3], np.uint8)
+
+        cv2.namedWindow('sliders')
+        cv2.createTrackbar('Hue', 'sliders', 0, 180, nothing)
+        # cv2.createTrackbar('Saturation', 'sliders', 100, 255, nothing) 
+        # cv2.createTrackbar('Value', 'sliders', 100, 255, nothing) 
+        # cv2.createTrackbar('Diff', 'sliders', 0, 50, nothing) 
 
         screen_x, screen_y = 1024, 768 
         display = scv.Display(resolution=(screen_x, screen_y))
-        cam = scv.Camera(1, {"height": 768, "width": 1024})
+        cam = scv.Camera(0, {"height": 768, "width": 1024})
         normalDisplay = True
         turret_x, turret_y = 0, 0    
    
@@ -180,8 +193,12 @@ class turretController():
                 'self': self}
  
         while display.isNotDone():
+
+            hue = cv2.getTrackbarPos('Hue', 'sliders')
+
             img = cam.getImage()
-            segmented = img.colorDistance(scv.Color.WHITE).dilate(2).binarize(25)
+            #segmented = img.colorDistance(scv.Color.WHITE).dilate(2).binarize(25)
+            segmented = img.hueDistance(hue, minsaturation=40, minvalue=40).binarize(45)
             args['img'] = img
             args['seg'] = segmented
 
@@ -208,8 +225,12 @@ class turretController():
             #Determines which type of picture is shown.
             if normalDisplay:
                 img.show()
+                cv2.imshow('sliders', blankimg)
+                cv2.waitKey(1)
             else:
                 segmented.show()
+                cv2.imshow('sliders', blankimg)
+                cv2.waitKey(1)
 
 controller = turretController(CONTROLFILE)
 controller.main()
