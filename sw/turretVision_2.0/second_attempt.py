@@ -100,19 +100,6 @@ def centering(args):
     x_center = screen_x/2 + x_off
     y_center = screen_y/2 + y_off
 
-    if msTime() > time_allowed:
-        #If we're within the bounds of the target, KILL.
-        dist_frm_center = sqrt((trg_x-x_center)**2 + (trg_y-y_center)**2)
-        print "Dist is %s and r is %s" % (dist_frm_center, trg_r)
-        if dist_frm_center <= trg_r and not justShot:    
-            shooting(self, True)
-            time_allowed = msTime() + 500
-            justShot = True
-        else:
-            shooting(self, False)
-            if justShot:
-                justShot = False      
-                time_allowed = msTime() + 1500
 
     if closest_trg.radius() > 2:
         args['seg'].dl().circle((trg_x, trg_y), closest_trg.radius(), scv.Color.RED, width=2)
@@ -147,9 +134,9 @@ def centering(args):
     #Position that we're sending it to is now "relative" to where we think
     #it is. Can adjust after.
     self.writeThread.write("\n")
-    self.writeThread.write("m 0 %s\n" % args['t_x'])
+    self.writeThread.write("m 1 %s\n" % args['t_x'])
     self.writeThread.write("\n")
-    self.writeThread.write("m 1 %s\n" % args['t_y'])
+    self.writeThread.write("m 0 %s\n" % args['t_y'])
 
     #Redetect the closest circle.
     seeking_target(args)
@@ -203,20 +190,21 @@ class turretController():
         self.writeThread.write("m 1 set p 700\n")
          
     def main(self):
-
+        global time_allowed
         global STATE
         global x_off, y_off
-
+        global justShot    
+    
         blankimg = np.zeros([300, 512, 3], np.uint8)
 
         cv2.namedWindow('sliders')
         cv2.createTrackbar('Hue', 'sliders', 105, 180, nothing)
-        cv2.createTrackbar('x', 'sliders', 127, 300, nothing)
-        cv2.createTrackbar('y', 'sliders', 194, 300, nothing)
+        cv2.createTrackbar('x', 'sliders', 122, 300, nothing)
+        cv2.createTrackbar('y', 'sliders', 190, 300, nothing)
 
         screen_x, screen_y = 1024, 768 
         display = scv.Display(resolution=(screen_x, screen_y))
-        cam = scv.Camera(0, {"height": 768, "width": 1024})
+        cam = scv.Camera(1, {"height": 768, "width": 1024})
         normalDisplay = True
         turret_x, turret_y = 0, 0    
    
@@ -241,11 +229,26 @@ class turretController():
             # segmented = img.hueDistance(hue, minsaturation=40, minvalue=40).invert()
             args['img'] = img
             args['seg'] = segmented
+            
+            if msTime() > time_allowed:
+                #If we're within the bounds of the target, KILL.
+                #dist_frm_center = sqrt((trg_x-x_center)**2 + (trg_y-y_center)**2)
+                # print "Dist is %s and r is %s" % (dist_frm_center, trg_r)
+                #if dist_frm_center <= trg_r and not justShot:    
+                if not justShot:    
+                    shooting(self, True)
+                    time_allowed = msTime() + 1000
+                    justShot = True
+                else:
+                    shooting(self, False)
+                    if justShot:
+                        justShot = False      
+                        time_allowed = msTime() + 1000
 
             #segmented = np.where(segmented < 200, 0, segmented)
             blobs = segmented.findBlobs(minsize=10, maxsize=7000)
             if blobs:
-                circles = blobs.filter([b.isCircle(0.5) for b in blobs])
+                circles = blobs.filter([b.isCircle(0.7) for b in blobs])
                 args['circles'] = circles
             else:
                 args['circles'] = []   
