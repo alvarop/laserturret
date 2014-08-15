@@ -35,26 +35,26 @@ class serialReadThread(threading.Thread):
 def moveRight():
 	global posX
 	posX = posX + 50
-	stream.write('m 0 ' + str(posX) + '\n')
-	print('m 0 ' + str(posX) + '\n')
+	stream.write('m 1 ' + str(posX) + '\n')
+	print('m 1 ' + str(posX) + '\n')
 
 def moveLeft():
 	global posX
 	posX = posX - 50
-	stream.write('m 0 ' + str(posX) + '\n')
-	print('m 0 ' + str(posX) + '\n')	
+	stream.write('m 1 ' + str(posX) + '\n')
+	print('m 1 ' + str(posX) + '\n')	
 
 def moveUp():
 	global posY
 	posY = posY + 50
-	stream.write('m 1 ' + str(posY) + '\n')
-	print('m 1 ' + str(posY) + '\n')
+	stream.write('m 0 ' + str(posY) + '\n')
+	print('m 0 ' + str(posY) + '\n')
 
 def moveDown():
 	global posY
 	posY = posY - 50
-	stream.write('m 1 ' + str(posY) + '\n')
-	print('m 1 ' + str(posY) + '\n')	
+	stream.write('m 0 ' + str(posY) + '\n')
+	print('m 0 ' + str(posY) + '\n')	
 
 def center():
 	global posX
