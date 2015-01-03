@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "console.h"
 #include "fifo.h"
+#include "galvo.h"
 
 #include "stm32f4xx_conf.h"
 #include "stm32f4xx.h"
@@ -20,9 +21,11 @@ static uint8_t argc;
 static char* argv[8];
 
 static void helpFn(uint8_t argc, char *argv[]);
+static void galvoFn(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
 	// Add new commands here!
+	{"g", galvoFn,	"Usage: g <galvo(0-1)> <pos(-32767-32767)"},
 	{"help", helpFn, "Print this!"},
 	{NULL, NULL, NULL}
 };
@@ -49,10 +52,25 @@ static void helpFn(uint8_t argc, char *argv[]) {
 	}
 }
 
+static void galvoFn(uint8_t argc, char *argv[]) {
+	if(argc == 3) {
+		int8_t galvo = strtoul(argv[1], NULL, 10);
+		int32_t pos = strtol(argv[2], NULL, 10);
+
+		galvoSet(galvo, pos);
+		
+	} else {
+		printf("Invalid galvo arguments\n");
+	}
+}
+
+
 //
 // Put any initialization code here
 //
 void consoleInit() {
+
+	galvoInit();
 
 	// Init Laser
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, ENABLE);
