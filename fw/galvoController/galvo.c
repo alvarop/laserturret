@@ -4,6 +4,8 @@
 #include "stm32f4xx_conf.h"
 #include "stm32f4xx.h"
 
+#define MAX_VALUE (4095)
+
 void galvoInit() {
 	DAC_InitTypeDef dacConfig;
 
@@ -32,6 +34,13 @@ void galvoInit() {
 }
 
 void galvoSet(uint8_t galvo, int32_t pos) {
+
+	if(pos > MAX_VALUE) {
+		pos = MAX_VALUE;
+	} else if(pos < 0 ) {
+		pos = 0;
+	}
+
 	if(galvo == 0) {
 		DAC_SetChannel1Data(DAC_Align_12b_R, (uint16_t)pos);
 		DAC_SoftwareTriggerCmd(DAC_Channel_1, ENABLE);
