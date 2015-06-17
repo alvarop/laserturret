@@ -124,6 +124,8 @@ int main(int argc, char ** argv) {
 	controlfile << "laser 0\n" << endl;
 
 	VideoCapture cap(strtoul(argv[2], NULL, 10));
+	cap.set(CV_CAP_PROP_FRAME_WIDTH, 640);
+	cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
 
 	if(!cap.isOpened()) {
 		cout << "Capture could not be opened successfully" << endl;
@@ -132,7 +134,7 @@ int main(int argc, char ** argv) {
 
 	namedWindow("Frame");
 	namedWindow("Video");
-	namedWindow("Control", CV_WINDOW_AUTOSIZE);
+	namedWindow("Control", CV_WINDOW_NORMAL);
 
 	cvCreateTrackbar("minVelocityX", "Control", &minVelocityX, OFFSET_MAX);
 	cvCreateTrackbar("minVelocityY", "Control", &minVelocityY, OFFSET_MAX);
