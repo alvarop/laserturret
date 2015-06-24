@@ -24,61 +24,61 @@ import time
 import os
 
 class serialReadThread(threading.Thread):
-	def __init__(self, inStream):
-		super(serialReadThread, self).__init__()
-		self.stream = inStream
-		self.running = 1
+    def __init__(self, inStream):
+        super(serialReadThread, self).__init__()
+        self.stream = inStream
+        self.running = 1
 
-	def run(self):
-		while self.running:
-			try:
-				line = self.stream.readline(50)
-				if line:
-					print line
-			except serial.SerialException:
-				print "serial error"
+    def run(self):
+        while self.running:
+            try:
+                line = self.stream.readline(50)
+                if line:
+                    print line
+            except serial.SerialException:
+                print "serial error"
 
 class cameraReadThread(threading.Thread):
-	def __init__(self, cam):
-		super(cameraReadThread, self).__init__()
-		self.cap = cv2.VideoCapture(cam)
-		self.cap.set(3, 1920)
-		self.cap.set(4, 1080)
-		w = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-		h = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-		print("Resolution: (" + str(int(w)) + "," + str(int(h)) + ")")
+    def __init__(self, cam):
+        super(cameraReadThread, self).__init__()
+        self.cap = cv2.VideoCapture(cam)
+        self.cap.set(3, 1920)
+        self.cap.set(4, 1080)
+        w = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        h = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        print("Resolution: (" + str(int(w)) + "," + str(int(h)) + ")")
 
-		self.running = 1
-		self.frameReady = False
+        self.running = 1
+        self.frameReady = False
 
-	def run(self):
-		while self.running:
-			_, self.frame = self.cap.read()
-			self.frameReady = True
+    def run(self):
+        while self.running:
+            _, self.frame = self.cap.read()
+            self.frameReady = True
 
-	def getFrame(self):
-		while(self.frameReady == False):
-			time.sleep(0.001)
+    def getFrame(self):
+        while(self.frameReady == False):
+            time.sleep(0.001)
 
-		self.frameReady = False
-		return self.frame
+        self.frameReady = False
+        return self.frame
 
 def setLaserState(state):
-	if(state):
-		stream.write('laser 0\n')
-	else:
-		stream.write('laser 1\n')
+    if(state):
+        stream.write('laser 0\n')
+    else:
+        stream.write('laser 1\n')
 
 def setLaserPos(x, y):
-	stream.write("g 0 " + str(x) + "\n")
-	stream.write("g 1 " + str(y) + "\n")
+    stream.write("g 0 " + str(x) + "\n")
+    stream.write("g 1 " + str(y) + "\n")
 
 def setLaserAndTakePhoto(x, y):
-	setLaserState(True)
-	setLaserPos(x,y)
-	time.sleep(0.1)
-	setLaserState(False)
-	return cameraThread.getFrame()
+    setLaserState(True)
+    setLaserPos(x,y)
+    time.sleep(0.1)
+    setLaserState(False)
+    return cameraThread.getFrame()
 
 def findDot(image, squareSize, stepSize):
     shape = image.shape
@@ -163,8 +163,8 @@ X_CENTER = X_RANGE/ 2.0 + X_MIN
 Y_CENTER = Y_RANGE/ 2.0 + Y_MIN
 
 if len(sys.argv) < 2:
-	print 'Usage: ', sys.argv[0], '/path/to/serial/device'
-	sys.exit()
+    print 'Usage: ', sys.argv[0], '/path/to/serial/device'
+    sys.exit()
 
 streamFileName = sys.argv[1]
 
@@ -198,23 +198,28 @@ setLaserAndTakePhoto(X_CENTER, Y_CENTER)
 
 dotTable = []
 
+dotFile = open('dotTable.csv', 'w')
+
 for laserY in range(Y_MIN, Y_MAX, Y_RANGE/10):
-	for laserX in range(X_MIN, X_MAX, X_RANGE/10):
-		dot = setLaserAndTakePhoto(laserX, laserY)
-		diff = cv2.absdiff(dark, dot)
+    for laserX in range(X_MIN, X_MAX, X_RANGE/10):
+        dot = setLaserAndTakePhoto(laserX, laserY)
+        diff = cv2.absdiff(dark, dot)
 
-		_, gray = cv2.threshold(diff, 127, 255, cv2.THRESH_TOZERO)
-		dotX, dotY = findZeDot(gray)
+        _, gray = cv2.threshold(diff, 127, 255, cv2.THRESH_TOZERO)
+        dotX, dotY = findZeDot(gray)
 
-		dotTable.append([laserX, laserY, dotX, dotY])
-		print("(" + str(laserX) + ", " + str(laserY) + ") = (" + str(dotX) + "," + str(dotY) + ")")
+        dotTable.append([laserX, laserY, dotX, dotY])
+        # print out coordinates in a csv-ish fashion for easy import/export
+        print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY))
+        dotFile.write(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + "\n")
+        comb = cv2.absdiff(comb, diff)
+        # cv2.imwrite('f2.png', im2)
 
-		comb = cv2.absdiff(comb, diff)
-		# cv2.imwrite('f2.png', im2)
+dotFile.close()
 
 print("Preparing image")
 for laserX, laserY, dotX, dotY in dotTable:
-	cv2.circle(comb, (dotX, dotY), 5, [0,0,255])
+    cv2.circle(comb, (dotX, dotY), 5, [0,0,255])
 
 cv2.imwrite('comb.png', comb)
 print("Done!")
