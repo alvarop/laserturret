@@ -80,7 +80,7 @@ def setLaserAndTakePhoto(x, y):
 	setLaserState(False)
 	return cameraThread.getFrame()
 
-def findDot(image, squareSize):
+def findDot(image, squareSize, stepSize):
     shape = image.shape
     cols = shape[1]
     rows = shape[0]
@@ -89,8 +89,8 @@ def findDot(image, squareSize):
     maxCol = 0
     maxVal = 0
 
-    for col in range(0, cols, squareSize):
-        for row in range(0, rows, squareSize):
+    for col in range(0, cols, stepSize):
+        for row in range(0, rows, stepSize):
             sumElems = cv2.sumElems(image[row:(row + squareSize), col:(col + squareSize)])[0]
             if sumElems > maxVal:
                 maxRow = row
@@ -105,7 +105,7 @@ def findZeDot(gray):
     # 
     tmpImage = gray
     squareSize = 200
-    maxCol, maxRow = findDot(tmpImage, squareSize)
+    maxCol, maxRow = findDot(tmpImage, squareSize, squareSize)
     # print "Maximum at: (", maxCol, ",", maxRow, ")"
     # cv2.rectangle(im3, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
 
@@ -122,7 +122,7 @@ def findZeDot(gray):
     # 
     tmpImage = gray[newRows[0]:newRows[1], newCols[0]:newCols[1]] # Only needed for profiling
     squareSize = 20
-    maxCol, maxRow = findDot(tmpImage, squareSize)
+    maxCol, maxRow = findDot(tmpImage, squareSize, squareSize)
     maxCol += newCols[0]
     maxRow += newRows[0]
     # print "Maximum at: (", maxCol, ",", maxRow, ")"
@@ -137,11 +137,11 @@ def findZeDot(gray):
     # cv2.rectangle(im3, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,128,0), 1)
 
     # 
-    # Narrow down to a 5x5px area
+    # Narrow down to a 5x5px area and move by 1 pixel for better resolution
     # 
     tmpImage = gray[newRows[0]:newRows[1], newCols[0]:newCols[1]] # Only needed for profiling
     squareSize = 5
-    maxCol, maxRow = findDot(tmpImage, squareSize)
+    maxCol, maxRow = findDot(tmpImage, squareSize, 1)
     maxCol += newCols[0]
     maxRow += newRows[0]
     # print "Maximum at: (", maxCol, ",", maxRow, ")"
