@@ -22,10 +22,12 @@ static char* argv[8];
 
 static void helpFn(uint8_t argc, char *argv[]);
 static void galvoFn(uint8_t argc, char *argv[]);
+static void laserCmd(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
 	// Add new commands here!
 	{"g", galvoFn,	"Usage: g <galvo(0-1)> <pos(-32767-32767)"},
+	{"laser", laserCmd, "Usage: laser <0, 1>"},
 	{"help", helpFn, "Print this!"},
 	{NULL, NULL, NULL}
 };
@@ -61,6 +63,22 @@ static void galvoFn(uint8_t argc, char *argv[]) {
 		
 	} else {
 		printf("Invalid galvo arguments\n");
+	}
+}
+
+static void laserCmd(uint8_t argc, char *argv[]) {
+	if(argc > 1) {
+		uint8_t state = (uint8_t)strtoul(argv[1], NULL, 10);
+		if(state) {
+			GPIO_ResetBits(GPIOE, GPIO_Pin_4);		
+		} else {
+			GPIO_SetBits(GPIOE, GPIO_Pin_4);
+		}
+	} else {
+		printf("Invalid arguments\n");
+		
+		argv[1] = argv[0];
+		helpFn(2, argv);
 	}
 }
 
