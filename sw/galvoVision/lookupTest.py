@@ -43,9 +43,9 @@ def getLaserPos(pixelX, pixelY):
     for index in range(4):
         _,_, x, y = dotTable[sortedDistTable[index][0]]
         cv2.circle(newImg, (x, y), 10, [0,255-int(sortedDistTable[index][1]*4),0])
-        print x,y, sortedDistTable[index][1],1
+        print x,y, sortedDistTable[index][1]
 
-        dSum += sortedDistTable[index][1],1
+        dSum += sortedDistTable[index][1]
 
     print "dSum", dSum
 
@@ -54,7 +54,7 @@ def getLaserPos(pixelX, pixelY):
     idSum = 0.0
     nDist = []
     for index in range(4):
-         nDist.append(1/sortedDistTable[index][1],1)
+         nDist.append(1/sortedDistTable[index][1])
          print nDist[index]
          idSum += nDist[index]
 
