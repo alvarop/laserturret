@@ -9,8 +9,8 @@ import timeit
 def nothing(x):
     pass
 
-im1 = cv2.imread("orig/f1.png")
-im2 = cv2.imread("orig/f2.png")
+im1 = cv2.imread("testData/f1.png")
+im2 = cv2.imread("testData/f2.png")
 im3 = cv2.absdiff(im1, im2)
 
 def findDot(image, squareSize, stepSize):
@@ -40,7 +40,7 @@ def findZeDot(gray):
     squareSize = 200
     maxCol, maxRow = findDot(tmpImage, squareSize, squareSize)
     print "Maximum at: (", maxCol, ",", maxRow, ")"
-    # cv2.rectangle(im3, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
+    cv2.rectangle(im3, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
 
     # 
     # Compute new search area (10% larger in case we caught the dot in an edge)
@@ -48,7 +48,7 @@ def findZeDot(gray):
     fudge = int(squareSize * 0.1)
     newRows = (maxRow - fudge, maxRow + squareSize + fudge)
     newCols = (maxCol - fudge, maxCol + squareSize + fudge)
-    # cv2.rectangle(im3, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
+    cv2.rectangle(im3, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
 
     # 
     # Narrow down to a 20x20px area
@@ -59,7 +59,7 @@ def findZeDot(gray):
     maxCol += newCols[0]
     maxRow += newRows[0]
     print "Maximum at: (", maxCol, ",", maxRow, ")"
-    # cv2.rectangle(im3, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,255,0), 1)
+    cv2.rectangle(im3, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,255,0), 1)
 
     # 
     # Compute new search area (50% larger in case we caught the dot in an edge)
@@ -78,7 +78,7 @@ def findZeDot(gray):
     maxCol += newCols[0]
     maxRow += newRows[0]
     print "Maximum at: (", maxCol, ",", maxRow, ")"
-    # cv2.rectangle(im3, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (255,255,0), 1)
+    cv2.rectangle(im3, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0, 0, 0), 1)
 
     return (int(maxCol + squareSize/2),int(maxRow + squareSize/2))
 

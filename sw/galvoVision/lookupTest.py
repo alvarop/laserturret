@@ -72,9 +72,10 @@ def getLaserPos(pixelX, pixelY):
 
         print dist, idSum, nDist[index], (nDist[index]) / idSum # <--- how do we make the shorter one be weighed higher (but sum of all weights add up to 1)?
 
+        # Compute the weighted average of the pixel values (not laser values)
+        # just to test the algorithm. We *should* be able to recover the original one
         newX += x * nDist[index] / idSum
         newY += y * nDist[index] / idSum
-        # newLaserX += 
 
     newX = int(newX)
     newY = int(newY)
@@ -91,7 +92,7 @@ def getLaserPos(pixelX, pixelY):
 # Read table into list of lists (i think)
 # Format is "laserX, laserY, pixelX, pixelY"
 # 
-with open('dotTable.csv', 'rb') as csvfile:
+with open('testData/dotTable.csv', 'rb') as csvfile:
     reader = csv.reader(csvfile, delimiter=',')
     for row in reader:
         dotTable.append([int(row[0]), int(row[1]), int(row[2]), int(row[3])])
@@ -99,7 +100,7 @@ with open('dotTable.csv', 'rb') as csvfile:
 # 
 # Load calibration image for visual feedback during testing
 # 
-img = cv2.imread("comb.png")
+img = cv2.imread("testData/comb.png")
 cv2.namedWindow("image")
 cv2.setMouseCallback("image", mouseClick)
 cv2.imshow("image", img)
