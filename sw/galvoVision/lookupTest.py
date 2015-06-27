@@ -19,9 +19,9 @@ def nothing(x):
 def mouseClick(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         print("Mouse clicked(" + str(x) + ", " + str(y) +")")
-        getLaserPos(x, y)
+        getLaserPos(x, y, 4)
 
-def getLaserPos(pixelX, pixelY):
+def getLaserPos(pixelX, pixelY, numSamples = 4):
     distTable = []
 
     # 
@@ -40,7 +40,7 @@ def getLaserPos(pixelX, pixelY):
     # Get the sum of all the distances
     newImg = copy.copy(img)
     dSum = 0.0
-    for index in range(4):
+    for index in range(numSamples):
         _,_, x, y = dotTable[sortedDistTable[index][0]]
         cv2.circle(newImg, (x, y), 10, [0,255-int(sortedDistTable[index][1]*4),0])
         print x,y, sortedDistTable[index][1]
@@ -53,8 +53,8 @@ def getLaserPos(pixelX, pixelY):
     # Because we want the closest distance to have a higher weight
     idSum = 0.0
     nDist = []
-    for index in range(4):
-         nDist.append(1/sortedDistTable[index][1])
+    for index in range(numSamples):
+         nDist.append(1/(sortedDistTable[index][1]))
          print nDist[index]
          idSum += nDist[index]
 
@@ -66,7 +66,7 @@ def getLaserPos(pixelX, pixelY):
     print "idSum", idSum
 
     # Now compute new x,y position using weighted averages
-    for index in range(4):
+    for index in range(numSamples):
         dist = sortedDistTable[index][1]
         laserX,laserY, x, y = dotTable[sortedDistTable[index][0]]
 
