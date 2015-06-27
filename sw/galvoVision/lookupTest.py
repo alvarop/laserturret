@@ -19,70 +19,111 @@ def nothing(x):
 def mouseClick(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         print("Mouse clicked(" + str(x) + ", " + str(y) +")")
-        getLaserPos(x, y, 4)
+        newImg = copy.copy(img)
+        laserPoint = getLaserPos(x, y, 1, newImg)
 
-def getLaserPos(pixelX, pixelY, numSamples = 4):
+        print laserPoint
+
+        cv2.imshow("image", newImg)
+
+def drawPoints(pointList, img, size = 1, color = [0, 255, 0]):
+    for point in pointList:
+        matchingPoint = (point[2], point[3])
+        cv2.circle(img, matchingPoint, size, color)
+
+def addMidPoints(pointList, img, dupeThreshold = 5):
+    newPointList = copy.copy(pointList)
+    for p1 in pointList:
+        for p2 in pointList:
+            
+            # Remove complete duplicates
+            if p1 == p2:
+                continue
+
+            midPoint = getMidPoint((p1[2], p1[3]), (p2[2], p2[3]))
+            midLaserPoint = getMidPoint((p1[0], p1[1]), (p2[0], p2[1]))
+            
+            # Check against all other points, if they are within dupeThreshold, don't add the new one
+            dist = 1e99
+            for p3 in newPointList:
+                 dist = getDist((midPoint[0], midPoint[1]), (p3[2], p3[3]))
+                 if dist < dupeThreshold:
+                    break
+
+            # This is a new point, add it!
+            if dist >= dupeThreshold:
+                newPointList.append([midLaserPoint[0], midLaserPoint[1], midPoint[0], midPoint[1]])
+
+    return newPointList
+
+def getMidPoint(p1, p2):
+    return int((p1[0] + p2[0])/2), int((p1[1] + p2[1])/2)
+
+def getDist(p1, p2):
+    return math.sqrt(math.pow((p1[0] - p2[0]),2) + math.pow((p1[1] - p2[1]),2))
+
+def getClosestPoints(pointList, point, nPoints = 4):
     distTable = []
+
+    pixelX = point[0]
+    pixelY = point[1]
 
     # 
     # Get distance from every calibration point to pixelX, pixelY
     # 
-    for index in range(len(dotTable)):
-        dotX = dotTable[index][2]
-        dotY = dotTable[index][3]
-        dist = math.sqrt(math.pow((pixelX - dotX),2) + math.pow((pixelY - dotY),2))
-        distTable.append([index, dist])
+    for index in range(len(pointList)):
+        dotX = pointList[index][2]
+        dotY = pointList[index][3]
 
-    # Sort by increasing distance
+        # Don't include if it's an exact match
+        # if dotX == pixelX and dotY == pixelY:
+            # continue
+
+        dist = getDist((pixelX, pixelY), (dotX, dotY))
+        distTable.append([index, dist])    
+
     sortedDistTable = sorted(distTable, key = lambda x:x[1])
 
-    # Show the four closest calibration points
-    # Get the sum of all the distances
-    newImg = copy.copy(img)
-    dSum = 0.0
-    for index in range(numSamples):
-        _,_, x, y = dotTable[sortedDistTable[index][0]]
-        cv2.circle(newImg, (x, y), 10, [0,255-int(sortedDistTable[index][1]*4),0])
-        print x,y, sortedDistTable[index][1]
+    newTable = []
+    for item in sortedDistTable[0:nPoints]:
+        newTable.append(pointList[item[0]])
+    
+    return newTable
 
-        dSum += sortedDistTable[index][1]
+def getLaserPos(pixelX, pixelY, numSamples = 4, img = None):
+    # Get the four closest points
+    points = getClosestPoints(dotTable, (pixelX, pixelY), 4)
+    drawPoints(points, img, 5, [0,128,0])
 
-    print "dSum", dSum
+    # Interpolate between them to get new mid-points (with mid laser values calculated too)
+    points = addMidPoints(points, img)
+    drawPoints(points, img, 3, [0,128,0])
 
-    # Now take the sum of 1/(dist/SUM(distances))
-    # Because we want the closest distance to have a higher weight
-    idSum = 0.0
-    nDist = []
-    for index in range(numSamples):
-         nDist.append(1/(sortedDistTable[index][1]))
-         print nDist[index]
-         idSum += nDist[index]
+    # Repeat with the new list (including virtual points)
+    points = getClosestPoints(points, (pixelX, pixelY), 4)
+    drawPoints(points, img, 3, [0,0,128])
 
-    newLaserX = 0
-    newLaserY = 0
-    newX = 0
-    newY = 0
+    # Add more virtual points!
+    points = addMidPoints(points, img)
+    drawPoints(points, img, 2, [0,0,128])
 
-    print "idSum", idSum
+    # And again...
+    points = getClosestPoints(points, (pixelX, pixelY), 4)
+    drawPoints(points, img, 2, [0,128,128])
 
-    # Now compute new x,y position using weighted averages
-    for index in range(numSamples):
-        dist = sortedDistTable[index][1]
-        laserX,laserY, x, y = dotTable[sortedDistTable[index][0]]
+    points = addMidPoints(points, img, dupeThreshold = 4)
+    drawPoints(points, img, 1, [0,128,128])
 
-        print dist, idSum, nDist[index], (nDist[index]) / idSum # <--- how do we make the shorter one be weighed higher (but sum of all weights add up to 1)?
+    # and again
+    points = getClosestPoints(points, (pixelX, pixelY), 4)
+    drawPoints(points, img, 1, [0,255,0])
 
-        # Compute the weighted average of the pixel values (not laser values)
-        # just to test the algorithm. We *should* be able to recover the original one
-        newX += x * nDist[index] / idSum
-        newY += y * nDist[index] / idSum
+    points = addMidPoints(points, img, dupeThreshold = 2)
+    drawPoints(points, img, 1, [0,255,0])
 
-    newX = int(newX)
-    newY = int(newY)
-    print newX, newY
-    cv2.circle(newImg, (newX, newY), 5, [255,255,255])
-
-    cv2.imshow("image", newImg)
+    # Get final closest point
+    points = getClosestPoints(points, (pixelX, pixelY), 1)
+    return points[0]
 
 # 
 # Start Here!

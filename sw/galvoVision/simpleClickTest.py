@@ -155,6 +155,8 @@ setLaserState(False)
 while running:
     image = cameraThread.getFrame()
     cv2.circle(image, (laserX, laserY), 5, [0,255,0])
+    # TODO - only show relevant part of the picture here
+    # will have to adjust mouse, but if we can't shoot it, why even look at it!?
     cv2.imshow("image", image)
     k = cv2.waitKey(1)
     if k == 27:
