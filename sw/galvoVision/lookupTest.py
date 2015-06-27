@@ -20,7 +20,7 @@ def mouseClick(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         print("Mouse clicked(" + str(x) + ", " + str(y) +")")
         newImg = copy.copy(img)
-        laserPoint = getLaserPos(x, y, 1, newImg)
+        laserPoint = getLaserPos(x, y, newImg)
 
         print laserPoint
 
@@ -90,7 +90,7 @@ def getClosestPoints(pointList, point, nPoints = 4):
     
     return newTable
 
-def getLaserPos(pixelX, pixelY, numSamples = 4, img = None):
+def getLaserPos(pixelX, pixelY, img = None):
     # Get the four closest points
     points = getClosestPoints(dotTable, (pixelX, pixelY), 4)
     drawPoints(points, img, 5, [0,128,0])
