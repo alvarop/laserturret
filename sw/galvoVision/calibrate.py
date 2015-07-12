@@ -149,14 +149,15 @@ def findZeDot(gray):
 
     return (int(maxCol + squareSize/2),int(maxRow + squareSize/2))
 
-cam = 0
+cam = 1
 
-X_MIN = 700
-X_MAX = 1800
+MARGIN = 256
+X_MIN = 0 + MARGIN
+X_MAX = 4096 - MARGIN
 X_RANGE = (X_MAX - X_MIN)
 
-Y_MIN = 1100
-Y_MAX = 2500
+Y_MIN = 0 + MARGIN
+Y_MAX = 4096 - MARGIN
 Y_RANGE = (Y_MAX - Y_MIN)
 
 X_CENTER = X_RANGE/ 2.0 + X_MIN
