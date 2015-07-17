@@ -32,7 +32,23 @@ def findDot(image, squareSize, stepSize):
 
     return (maxCol, maxRow)
 
+def constrain(point, lBound, uBound):
+    newPoint = []
+    for index in range(len(point)):
+        if point[index] < lBound:
+            newPoint.append(lBound)
+        elif point[index] > uBound:
+            newPoint.append(uBound)
+        else:
+            newPoint.append(point[index])
+
+    return tuple(newPoint)
+
+
 def findZeDot(gray):
+    numCols = gray.shape[1]
+    numRows = gray.shape[0]
+
     # 
     #  Find general area (200x200px) where dot is
     # 
@@ -46,8 +62,8 @@ def findZeDot(gray):
     # Compute new search area (10% larger in case we caught the dot in an edge)
     # 
     fudge = int(squareSize * 0.1)
-    newRows = (maxRow - fudge, maxRow + squareSize + fudge)
-    newCols = (maxCol - fudge, maxCol + squareSize + fudge)
+    newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
+    newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
     cv2.rectangle(im3, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
 
     # 
@@ -65,8 +81,8 @@ def findZeDot(gray):
     # Compute new search area (50% larger in case we caught the dot in an edge)
     # 
     fudge = int(squareSize * 0.5)
-    newRows = (maxRow - fudge, maxRow + squareSize + fudge)
-    newCols = (maxCol - fudge, maxCol + squareSize + fudge)
+    newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
+    newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
     cv2.rectangle(im3, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,128,0), 1)
 
     # 

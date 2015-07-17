@@ -80,6 +80,18 @@ def setLaserAndTakePhoto(x, y):
     setLaserState(False)
     return cameraThread.getFrame()
 
+def constrain(point, lBound, uBound):
+    newPoint = []
+    for index in range(len(point)):
+        if point[index] < lBound:
+            newPoint.append(lBound)
+        elif point[index] > uBound:
+            newPoint.append(uBound)
+        else:
+            newPoint.append(point[index])
+
+    return tuple(newPoint)
+
 def findDot(image, squareSize, stepSize):
     shape = image.shape
     cols = shape[1]
@@ -100,6 +112,9 @@ def findDot(image, squareSize, stepSize):
     return (maxCol, maxRow)
 
 def findZeDot(gray):
+    numCols = gray.shape[1]
+    numRows = gray.shape[0]
+
     # 
     #  Find general area (200x200px) where dot is
     # 
@@ -113,8 +128,8 @@ def findZeDot(gray):
     # Compute new search area (10% larger in case we caught the dot in an edge)
     # 
     fudge = int(squareSize * 0.1)
-    newRows = (maxRow - fudge, maxRow + squareSize + fudge)
-    newCols = (maxCol - fudge, maxCol + squareSize + fudge)
+    newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
+    newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
     # cv2.rectangle(im3, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
 
     # 
@@ -132,8 +147,8 @@ def findZeDot(gray):
     # Compute new search area (50% larger in case we caught the dot in an edge)
     # 
     fudge = int(squareSize * 0.5)
-    newRows = (maxRow - fudge, maxRow + squareSize + fudge)
-    newCols = (maxCol - fudge, maxCol + squareSize + fudge)
+    newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
+    newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
     # cv2.rectangle(im3, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,128,0), 1)
 
     # 
@@ -184,7 +199,7 @@ cameraThread.daemon = True
 cameraThread.start()
 
 os.system("v4l2-ctl -d " + str(cam) + " -c focus_auto=0,exposure_auto=1")
-os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=3")
+os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=15")
 
 setLaserState(False)
 time.sleep(0.05)
@@ -206,12 +221,15 @@ for laserY in range(Y_MIN, Y_MAX, Y_RANGE/10):
         dot = setLaserAndTakePhoto(laserX, laserY)
         diff = cv2.absdiff(dark, dot)
 
-        _, gray = cv2.threshold(diff, 127, 255, cv2.THRESH_TOZERO)
+        _, gray = cv2.threshold(diff, 32, 255, cv2.THRESH_TOZERO)
         dotX, dotY = findZeDot(gray)
 
-        dotTable.append([laserX, laserY, dotX, dotY])
-        # print out coordinates in a csv-ish fashion for easy import/export
-        print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY))
+        if dotX < 10 and dotY < 10:
+            print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + " FAIL")
+        else:
+            dotTable.append([laserX, laserY, dotX, dotY])
+            print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY))
+
         dotFile.write(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + "\n")
         comb = cv2.absdiff(comb, diff)
         # cv2.imwrite('f2.png', im2)
@@ -222,7 +240,7 @@ print("Preparing image")
 for laserX, laserY, dotX, dotY in dotTable:
     cv2.circle(comb, (dotX, dotY), 5, [0,0,255])
 
-cv2.imwrite('comb.png', comb)
+cv2.imwrite('img/comb.png', comb)
 print("Done!")
 
 setLaserState(False)
