@@ -248,7 +248,7 @@ def removeOutliers(pointList):
         stdMagicDist = np.std(magicTable)
         print "avg = ", avgMagicDist,  "sd = ", stdMagicDist
 
-        if stdMagicDist < 0.1:
+        if stdMagicDist < 0.25:
             break
 
         for point in pointList:
