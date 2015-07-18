@@ -121,6 +121,9 @@ def setLaserPos(x, y):
     stream.write("g 0 " + str(x) + "\n")
     stream.write("g 1 " + str(y) + "\n")
 
+def laserShoot(target = '*', id = '00'):
+    stream.write('s [' + target + 'I' + id + ']\n')
+
 def mouseClick(event, x, y, flags, param):
     global laserX
     global laserY
@@ -135,7 +138,8 @@ def mouseClick(event, x, y, flags, param):
         laserX = laserPoint[0]
         laserY = laserPoint[1]
         setLaserPos(laserX, laserY)
-        setLaserState(True)
+        time.sleep(0.005)
+        laserShoot()
 
 def drawPoints(pointList, img, size = 1, color = [0, 255, 0]):
     for point in pointList:
@@ -284,7 +288,7 @@ running = True
 
 cv2.namedWindow("image")
 cv2.setMouseCallback("image", mouseClick)
-setLaserState(False)
+setLaserState(True)
 while running:
     image = cameraThread.getFrame()
     # cv2.circle(image, (laserX, laserY), 5, [0,255,0])
