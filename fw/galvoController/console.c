@@ -89,9 +89,9 @@ static void laserCmd(uint8_t argc, char *argv[]) {
 	if(argc > 1) {
 		uint8_t state = (uint8_t)strtoul(argv[1], NULL, 10);
 		if(state) {
-			GPIO_ResetBits(GPIOE, GPIO_Pin_4);		
+			GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
 		} else {
-			GPIO_SetBits(GPIOE, GPIO_Pin_4);
+			GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
 		}
 	} else {
 		printf("Invalid arguments\n");
@@ -109,17 +109,15 @@ void consoleInit() {
 	USART_InitTypeDef usartStruct;
 	galvoInit();
 
-	// Init Laser
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, ENABLE);
-	GPIO_Init(GPIOE, &(GPIO_InitTypeDef){GPIO_Pin_4, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
-	GPIO_SetBits(GPIOE, GPIO_Pin_4);
+	// Init Laser (as GPIO OUTPUT)
+	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+	GPIO_ResetBits(GPIOA, GPIO_Pin_2);
 
 	// Init Serial
+	// But don't set AF for pin until we turn the laser 'on'
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
 	RCC_APB1PeriphClockLPModeCmd(RCC_APB1Periph_USART2, ENABLE);
-
-	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
 
 	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2 ,GPIO_AF_USART2);
 
