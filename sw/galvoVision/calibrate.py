@@ -226,6 +226,7 @@ def getAvgPixelDist(pointList, point, num = 4):
 
 def removeOutliers(pointList):
     outliers = True
+    removedPoints = []
 
     while outliers:
         laserDistTable = []
@@ -264,11 +265,12 @@ def removeOutliers(pointList):
             outliers = True
             sortedOutliers = sorted(outlierTable, key = lambda x:x[1], reverse = True)
             print 'removing', sortedOutliers[0][0]
+            removedPoints.append(sortedOutliers[0][0])
             pointList.remove(sortedOutliers[0][0])
         else:
             outliers = False
 
-    return pointList
+    return pointList, removedPoints
 
 cam = 1
 exposure = 25
@@ -368,7 +370,8 @@ for laserYPos in range(Y_MIN, Y_MAX, Y_RANGE/10):
                 searching = False
 
 print("Removing outliers")
-dotTable = removeOutliers(dotTable)
+dotTable, removedTable = removeOutliers(dotTable)
+print 'removed ', removedTable
 print("Done removing outliers")
 
 dotFile = open('dotTable.csv', 'w')
