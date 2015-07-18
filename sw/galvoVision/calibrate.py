@@ -19,6 +19,7 @@ import argparse
 import cv2
 import math
 import serial
+import random
 import threading
 import time
 import os
@@ -216,23 +217,51 @@ dotTable = []
 
 dotFile = open('dotTable.csv', 'w')
 
-for laserY in range(Y_MIN, Y_MAX, Y_RANGE/10):
-    for laserX in range(X_MIN, X_MAX, X_RANGE/10):
-        dot = setLaserAndTakePhoto(laserX, laserY)
-        diff = cv2.absdiff(dark, dot)
+random.seed()
 
-        _, gray = cv2.threshold(diff, 32, 255, cv2.THRESH_TOZERO)
-        dotX, dotY = findZeDot(gray)
+for laserYPos in range(Y_MIN, Y_MAX, Y_RANGE/10):
+    for laserXPos in range(X_MIN, X_MAX, X_RANGE/10):
 
-        if dotX < 10 and dotY < 10:
-            print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + " FAIL")
-        else:
-            dotTable.append([laserX, laserY, dotX, dotY])
-            print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY))
+        laserY = laserYPos
+        laserX = laserXPos
 
-        dotFile.write(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + "\n")
-        comb = cv2.absdiff(comb, diff)
-        # cv2.imwrite('f2.png', im2)
+        searching = True
+        attempts = 0
+
+        while searching:
+            dot = setLaserAndTakePhoto(laserX, laserY)
+            diff = cv2.absdiff(dark, dot)
+
+            _, gray = cv2.threshold(diff, 32, 255, cv2.THRESH_TOZERO)
+            dotX, dotY = findZeDot(gray)
+
+            # If a dot is 'found' in the top left corner, there's a great chance it's a miss
+            if dotX < 10 and dotY < 10:
+                print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + " FAIL")
+
+                # Move the laser a little bit and try again
+                # How much we move depends on how many retries we've had
+                # Usually just re-capturing the image works, but sometimes
+                # we have to move it a bit
+                laserY = laserYPos + random.randint(-attempts, attempts)
+                laserX = laserXPos + random.randint(-attempts, attempts)
+
+                attempts += 1
+
+                # Give up after 5 attempts
+                if attempts > 5:
+                    print("Giving up")
+                    searching = False
+                else:
+                    print('trying ' + str(laserX) + ',' + str(laserY))
+            else:
+                print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY))
+                # Only save table data if we found a dot
+                dotTable.append([laserX, laserY, dotX, dotY])
+                dotFile.write(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + "\n")
+                comb = cv2.absdiff(comb, diff)
+
+                searching = False
 
 dotFile.close()
 
