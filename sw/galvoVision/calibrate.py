@@ -271,6 +271,7 @@ def removeOutliers(pointList):
     return pointList
 
 cam = 1
+exposure = 25
 
 MARGIN = 256
 X_MIN = 0 + MARGIN
@@ -305,7 +306,7 @@ cameraThread.daemon = True
 cameraThread.start()
 
 os.system("v4l2-ctl -d " + str(cam) + " -c focus_auto=0,exposure_auto=1")
-os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=15")
+os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=" + str(exposure))
 
 setLaserState(False)
 time.sleep(0.05)
