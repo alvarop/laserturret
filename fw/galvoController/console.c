@@ -64,10 +64,10 @@ static void serialFn(uint8_t argc, char *argv[]) {
 
 		while(dataLen) {
 
-			while(USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET) {
+			while(USART_GetFlagStatus(USART3, USART_FLAG_TXE) == RESET) {
 				asm("nop");
 			}
-			USART_SendData(USART2, *dataPtr++);
+			USART_SendData(USART3, *dataPtr++);
 			dataLen--;
 		}
 	}
@@ -89,9 +89,9 @@ static void laserCmd(uint8_t argc, char *argv[]) {
 	if(argc > 1) {
 		uint8_t state = (uint8_t)strtoul(argv[1], NULL, 10);
 		if(state) {
-			GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+			GPIO_Init(GPIOD, &(GPIO_InitTypeDef){GPIO_Pin_8, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
 		} else {
-			GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+			GPIO_Init(GPIOD, &(GPIO_InitTypeDef){GPIO_Pin_8, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
 		}
 	} else {
 		printf("Invalid arguments\n");
@@ -110,26 +110,27 @@ void consoleInit() {
 	galvoInit();
 
 	// Init Laser (as GPIO OUTPUT)
-	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
-	GPIO_ResetBits(GPIOA, GPIO_Pin_2);
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
+	GPIO_Init(GPIOD, &(GPIO_InitTypeDef){GPIO_Pin_8, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+	GPIO_ResetBits(GPIOD, GPIO_Pin_8);
 
 	// Init Serial
 	// But don't set AF for pin until we turn the laser 'on'
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
-	RCC_APB1PeriphClockLPModeCmd(RCC_APB1Periph_USART2, ENABLE);
+	
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
+	RCC_APB1PeriphClockLPModeCmd(RCC_APB1Periph_USART3, ENABLE);
 
-	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2 ,GPIO_AF_USART2);
+	GPIO_PinAFConfig(GPIOD, GPIO_PinSource8 ,GPIO_AF_USART3);
 
-	USART_DeInit(USART2);
+	USART_DeInit(USART3);
 	USART_StructInit(&usartStruct);
 
 	usartStruct.USART_BaudRate = 4800;
 	usartStruct.USART_Mode = USART_Mode_Tx;
 
-	USART_Init(USART2, &usartStruct);
+	USART_Init(USART3, &usartStruct);
 
-	USART_Cmd(USART2, ENABLE);
+	USART_Cmd(USART3, ENABLE);
 }
 
 //
