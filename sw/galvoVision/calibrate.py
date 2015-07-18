@@ -67,9 +67,9 @@ class cameraReadThread(threading.Thread):
 
 def setLaserState(state):
     if(state):
-        stream.write('laser 0\n')
-    else:
         stream.write('laser 1\n')
+    else:
+        stream.write('laser 0\n')
 
 def setLaserPos(x, y):
     stream.write("g 0 " + str(x) + "\n")
