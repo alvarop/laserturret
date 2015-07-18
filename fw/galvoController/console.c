@@ -22,11 +22,13 @@ static char* argv[8];
 
 static void helpFn(uint8_t argc, char *argv[]);
 static void galvoFn(uint8_t argc, char *argv[]);
+static void serialFn(uint8_t argc, char *argv[]);
 static void laserCmd(uint8_t argc, char *argv[]);
 
 static command_t commands[] = {
 	// Add new commands here!
 	{"g", galvoFn,	"Usage: g <galvo(0-1)> <pos(-32767-32767)"},
+	{"s", serialFn,	"Usage: s <string>"},
 	{"laser", laserCmd, "Usage: laser <0, 1>"},
 	{"help", helpFn, "Print this!"},
 	{NULL, NULL, NULL}
@@ -50,6 +52,23 @@ static void helpFn(uint8_t argc, char *argv[]) {
 				break;
 			}
 			command++;
+		}
+	}
+}
+
+static void serialFn(uint8_t argc, char *argv[]) {
+	if(argc > 1) {
+		char *data = argv[1];
+		uint8_t *dataPtr = (uint8_t *)data;
+		uint32_t dataLen = strlen(data);
+
+		while(dataLen) {
+
+			while(USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET) {
+				asm("nop");
+			}
+			USART_SendData(USART2, *dataPtr++);
+			dataLen--;
 		}
 	}
 }
@@ -87,13 +106,32 @@ static void laserCmd(uint8_t argc, char *argv[]) {
 // Put any initialization code here
 //
 void consoleInit() {
-
+	USART_InitTypeDef usartStruct;
 	galvoInit();
 
 	// Init Laser
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, ENABLE);
 	GPIO_Init(GPIOE, &(GPIO_InitTypeDef){GPIO_Pin_4, GPIO_Mode_OUT, GPIO_OType_PP, GPIO_Speed_2MHz, GPIO_PuPd_NOPULL});
 	GPIO_SetBits(GPIOE, GPIO_Pin_4);
+
+	// Init Serial
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
+	RCC_APB1PeriphClockLPModeCmd(RCC_APB1Periph_USART2, ENABLE);
+
+	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_2, GPIO_Mode_AF, GPIO_OType_PP, GPIO_Speed_50MHz, GPIO_PuPd_NOPULL});
+
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2 ,GPIO_AF_USART2);
+
+	USART_DeInit(USART2);
+	USART_StructInit(&usartStruct);
+
+	usartStruct.USART_BaudRate = 4800;
+	usartStruct.USART_Mode = USART_Mode_Tx;
+
+	USART_Init(USART2, &usartStruct);
+
+	USART_Cmd(USART2, ENABLE);
 }
 
 //
