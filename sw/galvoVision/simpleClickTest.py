@@ -219,7 +219,7 @@ cameraThread.daemon = True
 cameraThread.start()
 
 os.system("v4l2-ctl -d " + str(cam) + " -c focus_auto=0,exposure_auto=1")
-os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=30")
+os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=1024")
 
 running = True
 
