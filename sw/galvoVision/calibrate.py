@@ -23,6 +23,7 @@ import random
 import threading
 import time
 import os
+import numpy as np
 
 class serialReadThread(threading.Thread):
     def __init__(self, inStream):
@@ -165,6 +166,110 @@ def findZeDot(gray):
 
     return (int(maxCol + squareSize/2),int(maxRow + squareSize/2))
 
+def getDist(p1, p2):
+    return math.sqrt(math.pow((p1[0] - p2[0]),2) + math.pow((p1[1] - p2[1]),2))
+
+def getClosestPoints(pointList, point, nPoints = 4, duplicates = True):
+    distTable = []
+
+    pixelX = point[0]
+    pixelY = point[1]
+
+    # 
+    # Get distance from every calibration point to pixelX, pixelY
+    # 
+    for index in range(len(pointList)):
+        dotX = pointList[index][2]
+        dotY = pointList[index][3]
+
+        # Don't include if it's an exact match
+        if not duplicates and dotX == pixelX and dotY == pixelY:
+            continue
+
+        dist = getDist((pixelX, pixelY), (dotX, dotY))
+        # laserDist = getLaserDist((pixelX, pixelY), (dotX, dotY))
+        distTable.append([index, dist])    
+
+    sortedDistTable = sorted(distTable, key = lambda x:x[1])
+
+    newTable = []
+    for item in sortedDistTable[0:nPoints]:
+        newTable.append(pointList[item[0]])
+    
+    return newTable
+
+def getLaserDist(p1, p2):
+    return math.sqrt(math.pow((p1[0] - p2[0]),2) + math.pow((p1[1] - p2[1]),2))
+
+def getPixelDist(p1, p2):
+    return math.sqrt(math.pow((p1[2] - p2[2]),2) + math.pow((p1[3] - p2[3]),2))
+
+def getAvgLaserDist(pointList, point, num = 4):
+    points = getClosestPoints(pointList, (point[2],point[3]), num, False)
+    avgDist = 0.0
+    for neighbor in points:
+        avgDist += getLaserDist(point, neighbor)
+
+    avgDist /= len(points)
+
+    return avgDist
+
+def getAvgPixelDist(pointList, point, num = 4):
+    points = getClosestPoints(pointList, (point[2],point[3]), num, False)
+    avgDist = 0.0
+    for neighbor in points:
+        avgDist += getPixelDist(point, neighbor)
+
+    avgDist /= len(points)
+
+    return avgDist
+
+def removeOutliers(pointList):
+    outliers = True
+
+    while outliers:
+        laserDistTable = []
+        pixelDistTable = []
+        magicTable = []
+        outlierTable = []
+
+        # Compute average laser distance to 4 closest neighbors
+        for point in pointList:
+            laserDistTable.append(getAvgLaserDist(pointList, point))
+            pixelDistTable.append(getAvgPixelDist(pointList, point))
+        
+        avgLaserDist = np.mean(laserDistTable)
+        avgPixelDist = np.mean(pixelDistTable)
+        
+        for point in pointList:
+            magicTable.append((getAvgLaserDist(pointList, point)/avgLaserDist)/(getAvgPixelDist(pointList, point)/avgPixelDist))
+
+        avgMagicDist = np.mean(magicTable)
+        stdMagicDist = np.std(magicTable)
+        print "avg = ", avgMagicDist,  "sd = ", stdMagicDist
+
+        if stdMagicDist < 0.1:
+            break
+
+        for point in pointList:
+            laserDist = getAvgLaserDist(pointList, point)
+            pixelDist = getAvgPixelDist(pointList, point)
+            magicDist = (laserDist/avgLaserDist)/(pixelDist/avgPixelDist)
+
+            if magicDist > (avgMagicDist + stdMagicDist):
+                outlierTable.append([point, magicDist])
+                # print point, laserDist/avgLaserDist, pixelDist/avgPixelDist, magicDist
+
+        if len(outlierTable) > 0:
+            outliers = True
+            sortedOutliers = sorted(outlierTable, key = lambda x:x[1], reverse = True)
+            print 'removing', sortedOutliers[0][0]
+            pointList.remove(sortedOutliers[0][0])
+        else:
+            outliers = False
+
+    return pointList
+
 cam = 1
 
 MARGIN = 256
@@ -261,6 +366,9 @@ for laserYPos in range(Y_MIN, Y_MAX, Y_RANGE/10):
 
                 searching = False
 
+print("Removing outliers")
+dotTable = removeOutliers(dotTable)
+print("Done removing outliers")
 
 dotFile = open('dotTable.csv', 'w')
 for laserX, laserY, dotX, dotY in dotTable:
