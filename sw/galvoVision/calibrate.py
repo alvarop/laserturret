@@ -215,8 +215,6 @@ setLaserAndTakePhoto(X_CENTER, Y_CENTER)
 
 dotTable = []
 
-dotFile = open('dotTable.csv', 'w')
-
 random.seed()
 
 for laserYPos in range(Y_MIN, Y_MAX, Y_RANGE/10):
@@ -258,11 +256,15 @@ for laserYPos in range(Y_MIN, Y_MAX, Y_RANGE/10):
                 print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY))
                 # Only save table data if we found a dot
                 dotTable.append([laserX, laserY, dotX, dotY])
-                dotFile.write(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + "\n")
+                
                 comb = cv2.absdiff(comb, diff)
 
                 searching = False
 
+
+dotFile = open('dotTable.csv', 'w')
+for laserX, laserY, dotX, dotY in dotTable:
+    dotFile.write(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + "\n")
 dotFile.close()
 
 print("Preparing image")
