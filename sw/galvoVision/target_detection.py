@@ -31,7 +31,7 @@ def main():
 
         _, frame = cap.read()
 
-        mog_sub = fgbg.apply(frame)
+        mask = fgbg.apply(frame)
         # ret,thresh = cv2.threshold(mog_sub,127,255,0)
 
         # vis = np.concatenate((mog_sub, thresh), axis=0)
@@ -41,13 +41,12 @@ def main():
         # if args.template:
         #     use_match_detection(frame, args.template)
         # else:
-        use_feature_contours(mog_sub, frame)
+        use_feature_contours(mask, frame, 6)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-
-def use_feature_contours(mask, frame):
+def use_feature_contours(mask, frame, n):
 
     cp = mask.copy()
     cv2.imshow('masked', cp)
@@ -55,27 +54,48 @@ def use_feature_contours(mask, frame):
         cv2.findContours(cp, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     contours = [cv2.approxPolyDP(cnt, 3, True) for cnt in contours]
 
-    # Get the largest contour currently found.
-    areas = [cv2.contourArea(c) for c in contours]
-    max_index = np.argmax(areas)
+    n_contours = get_n_contours(contours, n)
 
-    h, w = frame.shape[:2]
+    draw(frame, n_contours)
 
-    # DRAW THE THING
+def draw(img_out, contours):
+    """
+    DRAW THE THING. And any additional things you want.
+    """
+    h, w = img_out.shape[:2]
     vis = np.zeros((h, w, 3), np.uint8)
-    cv2.drawContours(vis, contours, max_index, (128,255,255), 3, cv2.LINE_AA)
+    cv2.drawContours(vis, contours, -1, (128,255,255), 3, cv2.LINE_AA)
 
-    # Now draw bounding box
-    x,y,w,h = cv2.boundingRect(contours[max_index])
-    cv2.rectangle(vis,(x,y),(x+w,y+h),(0,255,0),2)
-
-    # Or a bounding circle
-    (x,y),radius = cv2.minEnclosingCircle(contours[max_index])
-    center = (int(x),int(y))
-    radius = int(radius)
-    cv2.circle(vis,center,radius,(0,0,255),3)
+    draw_bounding_rect(vis, contours)
+    # draw_bounding_circle(vis, contours)
 
     cv2.imshow('contours', vis)
+
+def get_n_contours(all_contours, n):
+    """
+    Get the n largest contours in the set.
+    """
+    areas = np.array([cv2.contourArea(c) for c in all_contours])
+
+    max_indices = np.argsort(-areas)[:n]
+    max_contours = [all_contours[idx] for idx in max_indices]
+    return max_contours
+
+def draw_bounding_rect(out_img, contours):
+
+    for c in contours:
+        # Now draw bounding box
+        x,y,w,h = cv2.boundingRect(c)
+        cv2.rectangle(out_img,(x,y),(x+w,y+h),(0,255,0),2)
+
+def draw_bounding_circle(out_img, contours):
+
+    for c in contours:
+        # Or a bounding circle
+        (x, y), radius = cv2.minEnclosingCircle(c)
+        center = (int(x), int(y))
+        radius = int(radius)
+        cv2.circle(out_img, center, radius, (0, 0, 255), 3)
 
 #def use_match_detection(frame, template):
 #     gray_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
