@@ -30,13 +30,11 @@ def main():
     while (True):
 
         _, frame = cap.read()
-
         mask = fgbg.apply(frame)
         # ret,thresh = cv2.threshold(mog_sub,127,255,0)
 
         # vis = np.concatenate((mog_sub, thresh), axis=0)
         cv2.imshow('image', frame)
-        #cv2.imshow('masked', mog_sub)
 
         # if args.template:
         #     use_match_detection(frame, args.template)
@@ -45,6 +43,7 @@ def main():
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+
 
 def use_feature_contours(mask, frame, n):
 
@@ -55,8 +54,27 @@ def use_feature_contours(mask, frame, n):
     contours = [cv2.approxPolyDP(cnt, 3, True) for cnt in contours]
 
     n_contours = get_n_contours(contours, n)
+    if n_contours:
+        live_trgs, dead_trgs = racial_profile(frame, n_contours)
 
     draw(frame, n_contours)
+
+
+def racial_profile(source_img, contours):
+    live, dead = [], []
+
+    for h, cnt in enumerate(contours):
+        mask = np.zeros(source_img.shape, np.uint8)
+        cv2.drawContours(mask, [cnt], 0, 255, -1)
+        print mask
+        print mask.dtype
+        mean = cv2.mean(source_img, mask=mask)
+
+        # Logic will live here for what color is blue vs white, and where to go.
+        live.append(mean)
+
+    # print live
+    return live, dead
 
 def draw(img_out, contours):
     """
@@ -71,6 +89,7 @@ def draw(img_out, contours):
 
     cv2.imshow('contours', vis)
 
+
 def get_n_contours(all_contours, n):
     """
     Get the n largest contours in the set.
@@ -81,11 +100,12 @@ def get_n_contours(all_contours, n):
     max_contours = [all_contours[idx] for idx in max_indices]
     return max_contours
 
+
 def draw_bounding_rect(out_img, contours):
 
     for c in contours:
         # Now draw bounding box
-        x,y,w,h = cv2.boundingRect(c)
+        x, y, w, h = cv2.boundingRect(c)
         cv2.rectangle(out_img,(x,y),(x+w,y+h),(0,255,0),2)
 
 def draw_bounding_circle(out_img, contours):
