@@ -4,113 +4,170 @@ import threading
 import time
 from sys import maxint
 
-
 import cv2
 import numpy as np
 
+from galvoVision.calibrate import cameraReadThread, serialReadThread
 
-class cameraReadThread(threading.Thread):
-    def __init__(self, cam):
-        super(cameraReadThread, self).__init__()
-        self.cap = cv2.VideoCapture(cam)
-        # self.cap.set(3, 1920)
-        # self.cap.set(4, 1080)
-        w = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        h = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        print("Resolution: (" + str(int(w)) + "," + str(int(h)) + ")")
-
-        self.running = 1
-        self.frameReady = False
-
-    def run(self):
-        while self.running:
-            _, self.frame = self.cap.read()
-            self.frameReady = True
-
-    def getFrame(self):
-        while(self.frameReady == False):
-            time.sleep(0.001)
-
-        self.frameReady = False
-        return self.frame
+INIT_STATE = True
+LOCKED_STATE = False
+SHOOT_STATE = False
+C_EXTENTS = None
+FC_BOUNDS = None
 
 def parse_args():
    
     parser = argparse.ArgumentParser()
-    # parser.add_argument("background", help="File which acts as the base unchanged image.")
-    # parser.add_argument("changed", help="File which acts as the changed image.")
-    parser.add_argument("v_input", type=int, help="Which camera should be used in case of multiple.")
+    parser.add_argument("v_input", type=int,
+                        help="Which camera should be used in case of multiple.")
     parser.add_argument('--template', help="Optional image to match on.")
     args = parser.parse_args()
 
     return args
 
 def main():
+    global INIT_STATE, LOCKED_STATE, SHOOT_STATE, C_EXTENTS, FC_BOUNDS
 
     args = parse_args()
 
     cam = args.v_input
     cameraThread = cameraReadThread(cam)
     cameraThread.daemon = True
+    cameraThread.start()
 
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
     cv2.namedWindow('masked', cv2.WINDOW_NORMAL)
     cv2.namedWindow('contours', cv2.WINDOW_NORMAL)
 
-    fgbg = cv2.createBackgroundSubtractorMOG2()
-    #fgbg = cv2.createBackgroundSubtractorKNN()
+    fgbg = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
 
-    cameraThread.start()
-    LOCKED = False
     prev_contour_set = None
 
-    print args
 
     while (True):
 
-        future_pairs = []
-        # if LOCKED:
-        #     frame = mask_original_frame(cameraThread.getFrame(), (l_bound, r_bound, u_bound, b_bound))
-        # else:
-        #     frame = cameraThread.getFrame()
         frame = cameraThread.getFrame()
         movement_mask = fgbg.apply(frame)
 
+        if INIT_STATE:
+            '''In init state, no suitable contours detected.
+            ACTION: Search FULL image for contours.
+            MOVES TO: LOCKED STATE
+            CONDITION: Have n contours of suitable size.
+            '''
+            contours = all_feature_contours(movement_mask)
+            n_contours = get_n_contours(contours, 1)
+
+        elif LOCKED_STATE:
+            '''Locked to trgs, n suitable contours detected.
+            ACTION:
+                - Clip incoming frame to a std size.
+                - Continue to detect contours on smaller frame.
+                >> Follow targets
+                - Get mean color of each known contour.
+                >> Determine future location
+                >> Determine alpha trg.
+                >> Determine target order.
+            MOVES TO: SHOOTING STATE
+            CONDITION: Have alpha target, it's blue, and know what number it is.
+            '''
+            # Slice needs to be y, x, starts at upper left corner.
+            frame = frame[FC_BOUNDS[0]:FC_BOUNDS[1],
+                    FC_BOUNDS[2]:FC_BOUNDS[3], ::]
+            contours = all_feature_contours(
+                movement_mask[FC_BOUNDS[0]:FC_BOUNDS[1],
+                    FC_BOUNDS[2]:FC_BOUNDS[3]]
+            )
+            n_contours = get_n_contours(contours, 1)
+
+            # Make sure we continue to follow contour extents.
+            correct_for_contour_movement(n_contours)
+            # if prev_contour_set:
+            #     matched_coords = find_shortest_distances(prev_contour_set, n_contours)
+            #     future_pairs = anticipate_the_future(matched_coords)
+            #
+            # prev_contour_set = n_contours
+            # live_trgs, dead_trgs = racial_profile(frame, n_contours)
+            # draw(frame, n_contours, future_pairs)
+
+            draw(frame, n_contours)
+
+        elif SHOOT_STATE:
+            pass
+
+        else:
+            print "SOMETHING HAS GONE TERRIBLY WRONG."
+
         cv2.imshow('image', frame)
-
-        contours = use_feature_contours(movement_mask)
-
-        n_contours, LOCKED = get_n_contours(contours, 1)
-        if LOCKED and n_contours:
-            if prev_contour_set:
-                matched_coords = find_shortest_distances(prev_contour_set, n_contours)
-                future_pairs = anticipate_the_future(matched_coords)
-
-            prev_contour_set = n_contours
-
-            # #Get extents of current contour set
-            # l_bound, r_bound, u_bound, b_bound = get_mask_coords(n_contours)
-            # print (l_bound, r_bound, u_bound, b_bound)
-        # if n_contours:
-        #     live_trgs, dead_trgs = racial_profile(frame, n_contours)
-
-        draw(frame, n_contours, future_pairs)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-def get_mask_coords(n_contours):
+def correct_for_contour_movement(contours):
+    global FC_BOUNDS, C_EXTENTS
+
+    update_contour_extents(contours)
+
+    # Left check
+    if C_EXTENTS[0] <= FC_BOUNDS[0]:
+        FC_BOUNDS[0] = max(FC_BOUNDS[0] - 50, 0)
+        FC_BOUNDS[1] -= 50
+    # Right check
+    elif C_EXTENTS[1] >= FC_BOUNDS[0]:
+        FC_BOUNDS[1] = min(FC_BOUNDS[1] + 50, 1919)
+        FC_BOUNDS[0] += 50
+    # Top check
+    elif C_EXTENTS[2] <= FC_BOUNDS[2]:
+        FC_BOUNDS[2] = max(FC_BOUNDS[2] - 50, 0)
+        FC_BOUNDS[3] -= 50
+    elif C_EXTENTS[3] >= FC_BOUNDS[3]:
+        FC_BOUNDS[3] = min(FC_BOUNDS[0] + 50, 1079)
+        FC_BOUNDS[2] += 50
+
+
+def update_contour_extents(n_contours):
+    global C_EXTENTS
 
     print "Running get coords on contour of %s size" % cv2.contourArea(n_contours[0])
 
-    leftmost = min([tuple(cnt[cnt[:,:,0].argmin()][0])[0] for cnt in n_contours])
-    rightmost = max([tuple(cnt[cnt[:,:,0].argmax()][0])[0] for cnt in n_contours])
-    topmost = min([tuple(cnt[cnt[:,:,1].argmin()][0])[1] for cnt in n_contours])
-    bottommost = max([tuple(cnt[cnt[:,:,1].argmax()][0])[1] for cnt in n_contours])
+    leftmost = \
+        min([tuple(cnt[cnt[:,:,0].argmin()][0])[0] for cnt in n_contours])
+    rightmost = \
+        max([tuple(cnt[cnt[:,:,0].argmax()][0])[0] for cnt in n_contours])
+    topmost = \
+        min([tuple(cnt[cnt[:,:,1].argmin()][0])[1] for cnt in n_contours])
+    bottommost = \
+        max([tuple(cnt[cnt[:,:,1].argmax()][0])[1] for cnt in n_contours])
 
-    return leftmost, rightmost, topmost, bottommost
+    print "Bounds are (%s, %s, %s, %s)" % (leftmost, rightmost, topmost, bottommost)
+    C_EXTENTS = [leftmost, rightmost, topmost, bottommost]
 
-def use_feature_contours(mask):
+def shift_to_init():
+    global INIT_STATE, LOCKED_STATE
+    """
+    Lost full set of targets. Go back to init state.
+    """
+    print "Shifting to INIT state."
+    INIT_STATE = True
+    LOCKED_STATE = False
+
+def shift_to_locked(contours):
+    global INIT_STATE, LOCKED_STATE, C_EXTENTS, FC_BOUNDS
+    """
+    Input: Set of contours which are of appropriate size to be targets.
+    Note: Move to locked state initializes the frame clip
+    extents to be the contour extents, stretched by 500 and 250.
+    """
+    print "Moving to LOCKED with contours: %s" % contours
+    INIT_STATE = False
+    LOCKED_STATE = True
+
+    update_contour_extents(contours)
+    # Left, Right, Up, Down
+    FC_BOUNDS = [C_EXTENTS[0], min(C_EXTENTS[1] + 500, 1919),
+                 C_EXTENTS[2], min(C_EXTENTS[3], 1079)]
+
+def all_feature_contours(mask):
 
     cp = mask.copy()
     cv2.imshow('masked', cp)
@@ -139,7 +196,7 @@ def racial_profile(source_img, contours):
     return live, dead
 
 
-def draw(img_out, contours, future_pairs):
+def draw(img_out, contours, future_pairs=None):
     """
     DRAW THE THING. And any additional things you want.
     """
@@ -156,6 +213,7 @@ def draw(img_out, contours, future_pairs):
 
 
 def get_n_contours(all_contours, n):
+    global LOCKED_STATE
     """
     Get the n largest contours in the set.
     """
@@ -163,10 +221,16 @@ def get_n_contours(all_contours, n):
 
     max_indices = np.argsort(-areas)[:n]
     max_contours = [all_contours[idx] for idx in max_indices]
+    # print "Area of MAX: %s" % [cv2.contourArea(x) for x in max_contours]
 
-    locked = all([cv2.contourArea(x) > 100 for x in max_contours])
+    locked = all([2000 > cv2.contourArea(x) > 100 for x in max_contours])
 
-    return max_contours, locked
+    if locked and not LOCKED_STATE:
+        shift_to_locked(max_contours)
+    elif LOCKED_STATE and not locked:
+        shift_to_init()
+
+    return max_contours
 
 
 def mask_original_frame(frame, coords):
