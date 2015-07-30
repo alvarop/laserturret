@@ -77,8 +77,7 @@ def main():
             # Slice needs to be y, x, starts at upper left corner.
             # frame = frame[FC_BOUNDS[0]:FC_BOUNDS[1],
             #         FC_BOUNDS[2]:FC_BOUNDS[3], ::]
-            print "Movement Mask of {} ".format(movement_mask.shape)
-            print "Gonna apply deez contours: %s" % FC_BOUNDS
+
             contours = all_feature_contours(
                 movement_mask[FC_BOUNDS[2]:FC_BOUNDS[3],
                             FC_BOUNDS[0]:FC_BOUNDS[1]]
@@ -119,19 +118,20 @@ def correct_for_contour_movement(contours):
 
     update_contour_extents(contours)
 
-    # Left check
-    if C_EXTENTS[0] <= FC_BOUNDS[0]:
+    print "Correcting, because C_Extents %s, but FC_BOUNDS %s" % (C_EXTENTS, FC_BOUNDS)
+    
+    if C_EXTENTS[0] < FC_BOUNDS[0]:
         FC_BOUNDS[0] = max(FC_BOUNDS[0] - 50, 0)
         FC_BOUNDS[1] -= 50
     # Right check
-    elif C_EXTENTS[1] >= FC_BOUNDS[0]:
+    elif C_EXTENTS[1] > FC_BOUNDS[0]:
         FC_BOUNDS[1] = min(FC_BOUNDS[1] + 50, 1919)
         FC_BOUNDS[0] += 50
     # Top check
-    elif C_EXTENTS[2] <= FC_BOUNDS[2]:
+    elif C_EXTENTS[2] < FC_BOUNDS[2]:
         FC_BOUNDS[2] = max(FC_BOUNDS[2] - 50, 0)
         FC_BOUNDS[3] -= 50
-    elif C_EXTENTS[3] >= FC_BOUNDS[3]:
+    elif C_EXTENTS[3] > FC_BOUNDS[3]:
         FC_BOUNDS[3] = min(FC_BOUNDS[0] + 50, 1079)
         FC_BOUNDS[2] += 50
 
@@ -222,9 +222,10 @@ def draw(img_out, contours, future_pairs=None):
     # draw_bounding_circle(vis, contours)
 
     # Show current search area.
-    cv2.rectangle(img_out,
-                  (FC_BOUNDS[0], FC_BOUNDS[3]),
-                  (FC_BOUNDS[1], FC_BOUNDS[3]), 2)
+    cv2.rectangle(vis,
+                  (FC_BOUNDS[0], FC_BOUNDS[2]),
+                  (FC_BOUNDS[1], FC_BOUNDS[3]),
+                  (255, 0, 255), 3)
 
     cv2.imshow('contours', vis)
 
