@@ -58,6 +58,8 @@ def main():
             contours = all_feature_contours(movement_mask)
             n_contours = get_n_contours(contours, 1)
 
+            print "Leaving if init."
+
         elif LOCKED_STATE:
             '''Locked to trgs, n suitable contours detected.
             ACTION:
@@ -71,17 +73,23 @@ def main():
             MOVES TO: SHOOTING STATE
             CONDITION: Have alpha target, it's blue, and know what number it is.
             '''
+            print "Entering if locked."
             # Slice needs to be y, x, starts at upper left corner.
-            frame = frame[FC_BOUNDS[0]:FC_BOUNDS[1],
-                    FC_BOUNDS[2]:FC_BOUNDS[3], ::]
+            # frame = frame[FC_BOUNDS[0]:FC_BOUNDS[1],
+            #         FC_BOUNDS[2]:FC_BOUNDS[3], ::]
+            print "Movement Mask of {} ".format(movement_mask.shape)
+            print "Gonna apply deez contours: %s" % FC_BOUNDS
             contours = all_feature_contours(
-                movement_mask[FC_BOUNDS[0]:FC_BOUNDS[1],
-                    FC_BOUNDS[2]:FC_BOUNDS[3]]
+                movement_mask[FC_BOUNDS[2]:FC_BOUNDS[3],
+                            FC_BOUNDS[0]:FC_BOUNDS[1]]
             )
             n_contours = get_n_contours(contours, 1)
 
             # Make sure we continue to follow contour extents.
-            correct_for_contour_movement(n_contours)
+            # Possible that we just shifted to init in here, so need to check
+            # before we correct according to new contours.
+            if n_contours:
+                correct_for_contour_movement(n_contours)
             # if prev_contour_set:
             #     matched_coords = find_shortest_distances(prev_contour_set, n_contours)
             #     future_pairs = anticipate_the_future(matched_coords)
@@ -98,10 +106,13 @@ def main():
         else:
             print "SOMETHING HAS GONE TERRIBLY WRONG."
 
+        print "Made it to the end."
         cv2.imshow('image', frame)
+        cv2.imshow('masked', movement_mask)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+
 
 def correct_for_contour_movement(contours):
     global FC_BOUNDS, C_EXTENTS
@@ -128,8 +139,6 @@ def correct_for_contour_movement(contours):
 def update_contour_extents(n_contours):
     global C_EXTENTS
 
-    print "Running get coords on contour of %s size" % cv2.contourArea(n_contours[0])
-
     leftmost = \
         min([tuple(cnt[cnt[:,:,0].argmin()][0])[0] for cnt in n_contours])
     rightmost = \
@@ -139,8 +148,9 @@ def update_contour_extents(n_contours):
     bottommost = \
         max([tuple(cnt[cnt[:,:,1].argmax()][0])[1] for cnt in n_contours])
 
-    print "Bounds are (%s, %s, %s, %s)" % (leftmost, rightmost, topmost, bottommost)
+    print "C_Extents are (%s, %s, %s, %s)" % (leftmost, rightmost, topmost, bottommost)
     C_EXTENTS = [leftmost, rightmost, topmost, bottommost]
+
 
 def shift_to_init():
     global INIT_STATE, LOCKED_STATE
@@ -151,6 +161,7 @@ def shift_to_init():
     INIT_STATE = True
     LOCKED_STATE = False
 
+
 def shift_to_locked(contours):
     global INIT_STATE, LOCKED_STATE, C_EXTENTS, FC_BOUNDS
     """
@@ -158,19 +169,19 @@ def shift_to_locked(contours):
     Note: Move to locked state initializes the frame clip
     extents to be the contour extents, stretched by 500 and 250.
     """
-    print "Moving to LOCKED with contours: %s" % contours
     INIT_STATE = False
     LOCKED_STATE = True
 
     update_contour_extents(contours)
     # Left, Right, Up, Down
-    FC_BOUNDS = [C_EXTENTS[0], min(C_EXTENTS[1] + 500, 1919),
-                 C_EXTENTS[2], min(C_EXTENTS[3], 1079)]
+    FC_BOUNDS = [C_EXTENTS[0], min(C_EXTENTS[0] + 500, 1919),
+                 C_EXTENTS[2], min(C_EXTENTS[2] + 250, 1079)]
+    print "Moved to LOCKED with window bounds: %s" % FC_BOUNDS
 
 def all_feature_contours(mask):
+    global FC_BOUNDS
 
     cp = mask.copy()
-    cv2.imshow('masked', cp)
     _, contours, hierarchy = \
         cv2.findContours(cp, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     contours = [cv2.approxPolyDP(cnt, 3, True) for cnt in contours]
@@ -197,6 +208,7 @@ def racial_profile(source_img, contours):
 
 
 def draw(img_out, contours, future_pairs=None):
+    global FC_BOUNDS
     """
     DRAW THE THING. And any additional things you want.
     """
@@ -208,6 +220,11 @@ def draw(img_out, contours, future_pairs=None):
     if future_pairs:
         draw_the_future(vis, future_pairs)
     # draw_bounding_circle(vis, contours)
+
+    # Show current search area.
+    cv2.rectangle(img_out,
+                  (FC_BOUNDS[0], FC_BOUNDS[3]),
+                  (FC_BOUNDS[1], FC_BOUNDS[3]), 2)
 
     cv2.imshow('contours', vis)
 
@@ -223,11 +240,15 @@ def get_n_contours(all_contours, n):
     max_contours = [all_contours[idx] for idx in max_indices]
     # print "Area of MAX: %s" % [cv2.contourArea(x) for x in max_contours]
 
-    locked = all([2000 > cv2.contourArea(x) > 100 for x in max_contours])
+    print "Looking at contours %s" % [cv2.contourArea(x) for x in max_contours]
+    locked = all([8000 > cv2.contourArea(x) > 200 for x in max_contours])
 
-    if locked and not LOCKED_STATE:
+    # all([empty]) is truthy, so need to additionally check if contours
+    if locked and max_contours and not LOCKED_STATE:
+        print "Shift to lock."
         shift_to_locked(max_contours)
-    elif LOCKED_STATE and not locked:
+    elif LOCKED_STATE and (not max_contours or not locked):
+        "Shift to init."
         shift_to_init()
 
     return max_contours
@@ -241,12 +262,14 @@ def mask_original_frame(frame, coords):
     return cv2.bitwise_and(frame, frame, mask=mask)
 
 
-def draw_bounding_rect(out_img, contours, filled=False):
+def draw_bounding_rect(out_img, contours, filled=2):
+    # Filled is 2 by default. If filling is desired, change to -1.
 
     for c in contours:
         # Now draw bounding box
         x, y, w, h = cv2.boundingRect(c)
         cv2.rectangle(out_img,(x,y),(x+w,y+h),(0,255,0), 2)
+
 
 def draw_bounding_circle(out_img, contours):
 
@@ -257,11 +280,13 @@ def draw_bounding_circle(out_img, contours):
         radius = int(radius)
         cv2.circle(out_img, center, radius, (0, 0, 255), 3)
 
+
 def draw_the_future(out_img, future_pairs):
 
     print "I want to draw %s " % future_pairs
     for pair in future_pairs:
         cv2.line(out_img, pair[0], pair[1], (0, 0, 255), 3)
+
 
 def find_shortest_distances(curr_cnts, prev_cnts):
     '''Naively assume that for a single coord, shortest distance
