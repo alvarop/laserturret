@@ -119,21 +119,29 @@ def correct_for_contour_movement(contours):
     update_contour_extents(contours)
 
     print "Correcting, because C_Extents %s, but FC_BOUNDS %s" % (C_EXTENTS, FC_BOUNDS)
-    
+
+    # Left check
     if C_EXTENTS[0] < FC_BOUNDS[0]:
         FC_BOUNDS[0] = max(FC_BOUNDS[0] - 50, 0)
         FC_BOUNDS[1] -= 50
+        print "Changing left bound."
     # Right check
-    elif C_EXTENTS[1] > FC_BOUNDS[0]:
+    elif C_EXTENTS[1] > FC_BOUNDS[1]:
         FC_BOUNDS[1] = min(FC_BOUNDS[1] + 50, 1919)
         FC_BOUNDS[0] += 50
+        print "Changing right bound."
     # Top check
     elif C_EXTENTS[2] < FC_BOUNDS[2]:
         FC_BOUNDS[2] = max(FC_BOUNDS[2] - 50, 0)
         FC_BOUNDS[3] -= 50
+        print "Changing upper bound."
+    # Bottom check
     elif C_EXTENTS[3] > FC_BOUNDS[3]:
         FC_BOUNDS[3] = min(FC_BOUNDS[0] + 50, 1079)
         FC_BOUNDS[2] += 50
+        print "Changing lower bound."
+    else:
+        print "Didn't need to correct."
 
 
 def update_contour_extents(n_contours):
@@ -182,34 +190,34 @@ def all_feature_contours(mask):
     global FC_BOUNDS
     global LOCKED_STATE
 
-    # Offset (left, top) b/c extracting from the greater frame.
-    offset = (FC_BOUNDS[0], FC_BOUNDS[2]) if LOCKED_STATE else None
-
     cp = mask.copy()
-    _, contours, hierarchy = \
-        cv2.findContours(cp, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE,
-                         offset=offset)
+
+    # Running w/ offset of None errored program out, so separating out func.
+    if LOCKED_STATE:
+        _, contours, hierarchy = \
+            cv2.findContours(cp, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE,
+                             offset=(FC_BOUNDS[0], FC_BOUNDS[2]))
+    else:
+        # Offset (left, top) b/c extracting from the greater frame.
+        _, contours, hierarchy = \
+            cv2.findContours(cp, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
     contours = [cv2.approxPolyDP(cnt, 3, True) for cnt in contours]
 
     return contours
 
-def racial_profile(source_img, contours):
-    live, dead = [], []
 
-    for h, cnt in enumerate(contours):
-        mask = np.zeros(source_img.shape[:2], np.uint8)
+def racial_profile(source_img, contours):
+
+    def is_blue(img, cnt):
+        mask = np.zeros(img.shape[:2], np.uint8)
         cv2.drawContours(mask, [cnt], 0, 255, -1)
 
-        mean = cv2.mean(source_img, mask=mask)
+        mean = cv2.mean(img, mask=mask)
 
-        if mean[0] > 110 and mean[1] > 110:
-            print "Trg %s is dead" % h
-            dead.append(cnt)
-        else:
-            print "Trg %s is live" % h
-            live.append(cnt)
+        return mean[0] > 110 and mean[1] > 110
 
-    return live, dead
+    return [is_blue(source_img, cnt) for cnt in contours]
 
 
 def draw(img_out, contours, future_pairs=None):
