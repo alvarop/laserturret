@@ -180,10 +180,15 @@ def shift_to_locked(contours):
 
 def all_feature_contours(mask):
     global FC_BOUNDS
+    global LOCKED_STATE
+
+    # Offset (left, top) b/c extracting from the greater frame.
+    offset = (FC_BOUNDS[0], FC_BOUNDS[2]) if LOCKED_STATE else None
 
     cp = mask.copy()
     _, contours, hierarchy = \
-        cv2.findContours(cp, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.findContours(cp, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE,
+                         offset=offset)
     contours = [cv2.approxPolyDP(cnt, 3, True) for cnt in contours]
 
     return contours
