@@ -14,6 +14,7 @@ LOCKED_STATE = False
 SHOOT_STATE = False
 C_EXTENTS = None
 FC_BOUNDS = None
+CURR_TRG = None
 
 def parse_args():
    
@@ -65,7 +66,7 @@ def main():
             ACTION:
                 - Clip incoming frame to a std size.
                 - Continue to detect contours on smaller frame.
-                >> Follow targets
+                - Follow targets
                 - Get mean color of each known contour.
                 >> Determine future location
                 >> Determine alpha trg.
@@ -89,18 +90,28 @@ def main():
             # before we correct according to new contours.
             if n_contours:
                 correct_for_contour_movement(n_contours)
-            # if prev_contour_set:
-            #     matched_coords = find_shortest_distances(prev_contour_set, n_contours)
-            #     future_pairs = anticipate_the_future(matched_coords)
-            #
-            # prev_contour_set = n_contours
-            # live_trgs, dead_trgs = racial_profile(frame, n_contours)
-            # draw(frame, n_contours, future_pairs)
+                blues = racial_profile(
+                    frame[FC_BOUNDS[0]:FC_BOUNDS[1],
+                        FC_BOUNDS[2]:FC_BOUNDS[3], ::],
+                    n_contours
+                )
+
+                # If at least one target in the set is blue, shift to shoot.
+                if sum(blues) >= 1:
+                    shift_to_shoot()
 
             draw(frame, n_contours)
 
         elif SHOOT_STATE:
-            pass
+            ''' Locked to trgs, have ACTIVE trgs.
+            ACTION:
+                - Extract x, y from given contour.
+                - Shoot ZE THING!
+                - Move back to init.
+            MOVES TO: INIT STATE
+            CONDITION: Always.
+            '''
+
 
         else:
             print "SOMETHING HAS GONE TERRIBLY WRONG."
@@ -186,6 +197,19 @@ def shift_to_locked(contours):
                  C_EXTENTS[2], min(C_EXTENTS[2] + 250, 1079)]
     print "Moved to LOCKED with window bounds: %s" % FC_BOUNDS
 
+
+def shift_to_shoot(contour):
+    global LOCKED_STATE, SHOOT_STATE
+    global CURR_TRG
+    """
+    Input: Full set of contours, and one happens to be blue.
+    """
+    LOCKED_STATE = False
+    SHOOT_STATE = True
+
+    CURR_TRG = contour
+    print "Moved to shoot, aiming at {}".format(get_center(contour))
+
 def all_feature_contours(mask):
     global FC_BOUNDS
     global LOCKED_STATE
@@ -208,10 +232,15 @@ def all_feature_contours(mask):
 
 
 def racial_profile(source_img, contours):
+    global FC_BOUNDS
+
+    # Passing in the sliced version of the frame, so need to subtract out
+    # the offset.
 
     def is_blue(img, cnt):
         mask = np.zeros(img.shape[:2], np.uint8)
-        cv2.drawContours(mask, [cnt], 0, 255, -1)
+        cv2.drawContours(mask, [cnt], 0, 255, -1,
+                         offset=(-FC_BOUNDS[0], -FC_BOUNDS[2]))
 
         mean = cv2.mean(img, mask=mask)
 
@@ -295,6 +324,13 @@ def draw_bounding_circle(out_img, contours):
         cv2.circle(out_img, center, radius, (0, 0, 255), 3)
 
 
+def get_center(cnt):
+    M = cv2.moments(cnt)
+    centroid_x = int(M['m10']/M['m00'])
+    centroid_y = int(M['m01']/M['m00'])
+    return centroid_x, centroid_y
+
+
 def draw_the_future(out_img, future_pairs):
 
     print "I want to draw %s " % future_pairs
@@ -307,14 +343,8 @@ def find_shortest_distances(curr_cnts, prev_cnts):
     will be a 1-to-1 for all in both curr set and prev set.'''
     master_set = []
 
-    def center(cnt):
-        M = cv2.moments(cnt)
-        centroid_x = int(M['m10']/M['m00'])
-        centroid_y = int(M['m01']/M['m00'])
-        return centroid_x, centroid_y
-
-    curr = [center(contour) for contour in curr_cnts]
-    prev_coords = [center(contour) for contour in prev_cnts]
+    curr = [get_center(contour) for contour in curr_cnts]
+    prev_coords = [get_center(contour) for contour in prev_cnts]
 
     for x,y in curr:
         print "X:%s,Y:%s, prev:%s" % (x, y, prev_coords)
