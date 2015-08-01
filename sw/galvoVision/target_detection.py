@@ -1,7 +1,7 @@
 import argparse
+from itertools import compress
 from math import sqrt
-import threading
-import time
+import serial
 from sys import maxint
 
 import cv2
@@ -21,29 +21,33 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("v_input", type=int,
                         help="Which camera should be used in case of multiple.")
+    parser.add_argument('str_loc', help="Location of the serial stream file.")
     parser.add_argument('--template', help="Optional image to match on.")
     args = parser.parse_args()
 
     return args
 
 def main():
-    global INIT_STATE, LOCKED_STATE, SHOOT_STATE, C_EXTENTS, FC_BOUNDS
+    global INIT_STATE, LOCKED_STATE, SHOOT_STATE, C_EXTENTS, FC_BOUNDS, CURR_TRG
 
     args = parse_args()
 
-    cam = args.v_input
-    cameraThread = cameraReadThread(cam)
+    cameraThread = cameraReadThread(args.v_input)
     cameraThread.daemon = True
     cameraThread.start()
+
+    stream = serial.Serial(args.str_loc)
+
+    # Start readThread as daemon so it will automatically close on program exit
+    readThread = serialReadThread(stream)
+    readThread.daemon = True
+    readThread.start()
 
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
     cv2.namedWindow('masked', cv2.WINDOW_NORMAL)
     cv2.namedWindow('contours', cv2.WINDOW_NORMAL)
 
     fgbg = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
-
-    prev_contour_set = None
-
 
     while (True):
 
@@ -57,7 +61,7 @@ def main():
             CONDITION: Have n contours of suitable size.
             '''
             contours = all_feature_contours(movement_mask)
-            n_contours = get_n_contours(contours, 1)
+            get_n_contours(contours, 1)
 
             print "Leaving if init."
 
@@ -87,7 +91,7 @@ def main():
 
             # Make sure we continue to follow contour extents.
             # Possible that we just shifted to init in here, so need to check
-            # before we correct according to new contours.
+            # before we correct according to new contours.n_contours =
             if n_contours:
                 correct_for_contour_movement(n_contours)
                 blues = racial_profile(
@@ -98,7 +102,7 @@ def main():
 
                 # If at least one target in the set is blue, shift to shoot.
                 if sum(blues) >= 1:
-                    shift_to_shoot()
+                    shift_to_shoot(n_contours, blues)
 
             draw(frame, n_contours)
 
@@ -111,7 +115,12 @@ def main():
             MOVES TO: INIT STATE
             CONDITION: Always.
             '''
+            # Current target to hit should be at CURR_TRG
+            c_x, c_y = get_center(CURR_TRG)
+            setLaserPos(stream, c_x, c_y)
+            laserShoot(stream)
 
+            shift_to_init()
 
         else:
             print "SOMETHING HAS GONE TERRIBLY WRONG."
@@ -122,6 +131,18 @@ def main():
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+
+
+def setLaserPos(stream, x, y):
+    print "Setting laser pos to %s, %s" % (x, y)
+    stream.write("g 0 " + str(x) + "\n")
+    stream.write("g 1 " + str(y) + "\n")
+
+
+def laserShoot(stream, target = '*', id = '00'):
+    out_msg = 's [' + target + 'I' + id + ']\n'
+    print "Shooting with info: %s" % out_msg
+    stream.write(out_msg)
 
 
 def correct_for_contour_movement(contours):
@@ -135,22 +156,18 @@ def correct_for_contour_movement(contours):
     if C_EXTENTS[0] < FC_BOUNDS[0]:
         FC_BOUNDS[0] = max(FC_BOUNDS[0] - 50, 0)
         FC_BOUNDS[1] -= 50
-        print "Changing left bound."
     # Right check
     elif C_EXTENTS[1] > FC_BOUNDS[1]:
         FC_BOUNDS[1] = min(FC_BOUNDS[1] + 50, 1919)
         FC_BOUNDS[0] += 50
-        print "Changing right bound."
     # Top check
     elif C_EXTENTS[2] < FC_BOUNDS[2]:
         FC_BOUNDS[2] = max(FC_BOUNDS[2] - 50, 0)
         FC_BOUNDS[3] -= 50
-        print "Changing upper bound."
     # Bottom check
     elif C_EXTENTS[3] > FC_BOUNDS[3]:
         FC_BOUNDS[3] = min(FC_BOUNDS[0] + 50, 1079)
         FC_BOUNDS[2] += 50
-        print "Changing lower bound."
     else:
         print "Didn't need to correct."
 
@@ -167,18 +184,18 @@ def update_contour_extents(n_contours):
     bottommost = \
         max([tuple(cnt[cnt[:,:,1].argmax()][0])[1] for cnt in n_contours])
 
-    print "C_Extents are (%s, %s, %s, %s)" % (leftmost, rightmost, topmost, bottommost)
     C_EXTENTS = [leftmost, rightmost, topmost, bottommost]
 
 
 def shift_to_init():
-    global INIT_STATE, LOCKED_STATE
+    global INIT_STATE, LOCKED_STATE, SHOOT_STATE
     """
     Lost full set of targets. Go back to init state.
     """
     print "Shifting to INIT state."
     INIT_STATE = True
     LOCKED_STATE = False
+    SHOOT_STATE = False
 
 
 def shift_to_locked(contours):
@@ -198,7 +215,7 @@ def shift_to_locked(contours):
     print "Moved to LOCKED with window bounds: %s" % FC_BOUNDS
 
 
-def shift_to_shoot(contour):
+def shift_to_shoot(contours, blues):
     global LOCKED_STATE, SHOOT_STATE
     global CURR_TRG
     """
@@ -207,8 +224,9 @@ def shift_to_shoot(contour):
     LOCKED_STATE = False
     SHOOT_STATE = True
 
-    CURR_TRG = contour
-    print "Moved to shoot, aiming at {}".format(get_center(contour))
+    CURR_TRG = next(compress(contours, blues))
+    print "Moved to shoot state, aiming at {}".format(get_center(CURR_TRG))
+
 
 def all_feature_contours(mask):
     global FC_BOUNDS
@@ -236,15 +254,20 @@ def racial_profile(source_img, contours):
 
     # Passing in the sliced version of the frame, so need to subtract out
     # the offset.
+    hsv_frame = cv2.cvtColor(source_img.copy(), cv2.COLOR_BGR2HSV)
 
     def is_blue(img, cnt):
+        lower_blue = np.array([110,50,50])
+        upper_blue = np.array([140,255,255])
+
         mask = np.zeros(img.shape[:2], np.uint8)
         cv2.drawContours(mask, [cnt], 0, 255, -1,
                          offset=(-FC_BOUNDS[0], -FC_BOUNDS[2]))
 
         mean = cv2.mean(img, mask=mask)
+        print "Mean color: {}".format(mean)
 
-        return mean[0] > 110 and mean[1] > 110
+        return all((mean[:3] < upper_blue) & (lower_blue < mean[:3]))
 
     return [is_blue(source_img, cnt) for cnt in contours]
 
@@ -326,6 +349,9 @@ def draw_bounding_circle(out_img, contours):
 
 def get_center(cnt):
     M = cv2.moments(cnt)
+
+    print "M is {}".format(M)
+
     centroid_x = int(M['m10']/M['m00'])
     centroid_y = int(M['m01']/M['m00'])
     return centroid_x, centroid_y
