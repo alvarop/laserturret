@@ -14,7 +14,9 @@ LOCKED_STATE = False
 SHOOT_STATE = False
 C_EXTENTS = None
 FC_BOUNDS = None
-CURR_TRG = None
+PAST_CONTS = None
+PAST_CORRECT = None
+PAST_BLUES = None
 
 def parse_args():
    
@@ -28,7 +30,8 @@ def parse_args():
     return args
 
 def main():
-    global INIT_STATE, LOCKED_STATE, SHOOT_STATE, C_EXTENTS, FC_BOUNDS, CURR_TRG
+    global INIT_STATE, LOCKED_STATE, SHOOT_STATE, C_EXTENTS, FC_BOUNDS
+    global PAST_CONTS, PAST_CORRECT, PAST_BLUES
 
     args = parse_args()
 
@@ -42,6 +45,9 @@ def main():
     readThread = serialReadThread(stream)
     readThread.daemon = True
     readThread.start()
+
+    trgs_req_to_lock = 2
+    trgs_total = 2
 
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
     cv2.namedWindow('masked', cv2.WINDOW_NORMAL)
@@ -58,10 +64,14 @@ def main():
             '''In init state, no suitable contours detected.
             ACTION: Search FULL image for contours.
             MOVES TO: LOCKED STATE
-            CONDITION: Have n contours of suitable size.
+            CONDITION: Have at least trgs_req_to_lock contours which meet
+                the target critiera.
             '''
             contours = all_feature_contours(movement_mask)
-            get_n_contours(contours, 1)
+            n_contours, correctness = get_n_contours(contours, trgs_total)
+
+            if sum(correctness) >= trgs_req_to_lock:
+                shift_to_locked(n_contours)
 
             print "Leaving if init."
 
@@ -80,45 +90,68 @@ def main():
             '''
             print "Entering if locked."
             # Slice needs to be y, x, starts at upper left corner.
-            # frame = frame[FC_BOUNDS[0]:FC_BOUNDS[1],
-            #         FC_BOUNDS[2]:FC_BOUNDS[3], ::]
 
             contours = all_feature_contours(
                 movement_mask[FC_BOUNDS[2]:FC_BOUNDS[3],
                             FC_BOUNDS[0]:FC_BOUNDS[1]]
             )
-            n_contours = get_n_contours(contours, 1)
+            n_contours, correctness = get_n_contours(contours, trgs_total)
+
+            # Lost the lock. Shift back to init.
+            if not n_contours or not sum(correctness) >= trgs_req_to_lock:
+                shift_to_init()
 
             # Make sure we continue to follow contour extents.
             # Possible that we just shifted to init in here, so need to check
             # before we correct according to new contours.n_contours =
-            if n_contours:
+            elif n_contours:
                 correct_for_contour_movement(n_contours)
+                print "Before profile, frame is {} and FC is {}".format(frame.shape, FC_BOUNDS)
                 blues = racial_profile(
-                    frame[FC_BOUNDS[0]:FC_BOUNDS[1],
-                        FC_BOUNDS[2]:FC_BOUNDS[3], ::],
+                    frame[FC_BOUNDS[2]:FC_BOUNDS[3],
+                    FC_BOUNDS[0]:FC_BOUNDS[1], ::],
                     n_contours
                 )
 
                 # If at least one target in the set is blue, shift to shoot.
                 if sum(blues) >= 1:
-                    shift_to_shoot(n_contours, blues)
+                    shift_to_shoot(n_contours, correctness, blues)
 
             draw(frame, n_contours)
 
         elif SHOOT_STATE:
             ''' Locked to trgs, have ACTIVE trgs.
             ACTION:
-                - Extract x, y from given contour.
-                - Shoot ZE THING!
+                - IF we know where all all_trgs are, can call our shot.
+                - ELSE, get the first blue, and shoot as wildcard.
                 - Move back to init.
             MOVES TO: INIT STATE
             CONDITION: Always.
             '''
-            # Current target to hit should be at CURR_TRG
-            c_x, c_y = get_center(CURR_TRG)
-            setLaserPos(stream, c_x, c_y)
-            laserShoot(stream)
+            contours = all_feature_contours(
+                movement_mask[FC_BOUNDS[2]:FC_BOUNDS[3],
+                            FC_BOUNDS[0]:FC_BOUNDS[1]]
+            )
+            n_contours, correctness = get_n_contours(contours, trgs_total)
+            correct_for_contour_movement(n_contours)
+
+            # Correct is the number of trgs which met criteria for being a
+            # target at all.
+            print "Within shoot, FC_Bounds are: {}".format(FC_BOUNDS)
+            if sum(correctness) == trgs_total:
+                idx, (c_x, c_y) = call_the_shot(n_contours)
+
+                setLaserPos(c_x, c_y)
+                # Have to add 1, because WTF STARTING ADDRESSING WITH 1.
+                laserShoot(stream, target=str(idx+1))
+
+            # If we aren't confident what's what, shoot as wildcard.
+            else:
+                curr_trg = next(compress(PAST_CONTS, PAST_BLUES))
+                c_x, c_y, _ = get_center(curr_trg)
+
+                setLaserPos(stream, c_x, c_y)
+                laserShoot(stream)
 
             shift_to_init()
 
@@ -144,6 +177,35 @@ def laserShoot(stream, target = '*', id = '00'):
     print "Shooting with info: %s" % out_msg
     stream.write(out_msg)
 
+
+def call_the_shot(curr_n_contours):
+    global PAST_CONTS, PAST_BLUES
+
+    '''
+    matched_coords- Of the form
+        [[(prev_x, prev_y_y), (curr_x, curr_y), curr_radius, is_blue],
+         [...], [...]]
+    '''
+    # Carrying blues in so that we don't have to color profile all over again.
+    matched_pairs = \
+        find_shortest_distances(curr_n_contours, PAST_CONTS, PAST_BLUES)
+    print "Matched are {}".format(matched_pairs)
+
+    alpha_center = determine_alpha_circle(matched_pairs)
+
+    def distance(coord_sets):
+        _, curr, _ = coord_sets
+        return sqrt((alpha_center[0] - curr[0])**2 +
+                    (alpha_center[1] - curr[1])**2)
+
+    ordered_trgs = sorted(matched_pairs, key=distance)
+    # "Give me the next target and the index relative to the alpha target whose
+    # color is blue.
+    # Return will be of the form (idx, (x, y))
+    new_trg = \
+        next((i, coord_set[1]) for i, coord_set in enumerate(ordered_trgs) if coord_set[3])
+
+    return new_trg
 
 def correct_for_contour_movement(contours):
     global FC_BOUNDS, C_EXTENTS
@@ -215,17 +277,18 @@ def shift_to_locked(contours):
     print "Moved to LOCKED with window bounds: %s" % FC_BOUNDS
 
 
-def shift_to_shoot(contours, blues):
+def shift_to_shoot(contours, correctness, blues):
     global LOCKED_STATE, SHOOT_STATE
-    global CURR_TRG
+    global PAST_CONTS, PAST_CORRECT, PAST_BLUES
     """
     Input: Full set of contours, and one happens to be blue.
     """
     LOCKED_STATE = False
     SHOOT_STATE = True
 
-    CURR_TRG = next(compress(contours, blues))
-    print "Moved to shoot state, aiming at {}".format(get_center(CURR_TRG))
+    PAST_CONTS = contours
+    PAST_CORRECT = correctness
+    PAST_BLUES = blues
 
 
 def all_feature_contours(mask):
@@ -254,7 +317,9 @@ def racial_profile(source_img, contours):
 
     # Passing in the sliced version of the frame, so need to subtract out
     # the offset.
+    print "Src Shape: {}".format(source_img.shape)
     hsv_frame = cv2.cvtColor(source_img.copy(), cv2.COLOR_BGR2HSV)
+    print "HSV_shpe : {}".format(hsv_frame.shape)
 
     def is_blue(img, cnt):
         lower_blue = np.array([110,50,50])
@@ -269,7 +334,7 @@ def racial_profile(source_img, contours):
 
         return all((mean[:3] < upper_blue) & (lower_blue < mean[:3]))
 
-    return [is_blue(source_img, cnt) for cnt in contours]
+    return [is_blue(hsv_frame, cnt) for cnt in contours]
 
 
 def draw(img_out, contours, future_pairs=None):
@@ -307,17 +372,9 @@ def get_n_contours(all_contours, n):
     # print "Area of MAX: %s" % [cv2.contourArea(x) for x in max_contours]
 
     print "Looking at contours %s" % [cv2.contourArea(x) for x in max_contours]
-    locked = all([8000 > cv2.contourArea(x) > 200 for x in max_contours])
+    meets_criteria = [8000 > cv2.contourArea(x) > 200 for x in max_contours]
 
-    # all([empty]) is truthy, so need to additionally check if contours
-    if locked and max_contours and not LOCKED_STATE:
-        print "Shift to lock."
-        shift_to_locked(max_contours)
-    elif LOCKED_STATE and (not max_contours or not locked):
-        "Shift to init."
-        shift_to_init()
-
-    return max_contours
+    return max_contours, meets_criteria
 
 
 def mask_original_frame(frame, coords):
@@ -348,14 +405,13 @@ def draw_bounding_circle(out_img, contours):
 
 
 def get_center(cnt):
-    M = cv2.moments(cnt)
 
-    print "M is {}".format(M)
+    print "Min cir: {}".format(cv2.minEnclosingCircle(cnt))
+    (x, y), radius = cv2.minEnclosingCircle(cnt)
+    x, y = int(x), int(y)
+    radius = int(radius)
 
-    centroid_x = int(M['m10']/M['m00'])
-    centroid_y = int(M['m01']/M['m00'])
-    return centroid_x, centroid_y
-
+    return x, y, radius
 
 def draw_the_future(out_img, future_pairs):
 
@@ -364,7 +420,7 @@ def draw_the_future(out_img, future_pairs):
         cv2.line(out_img, pair[0], pair[1], (0, 0, 255), 3)
 
 
-def find_shortest_distances(curr_cnts, prev_cnts):
+def find_shortest_distances(curr_cnts, prev_cnts, blues):
     '''Naively assume that for a single coord, shortest distance
     will be a 1-to-1 for all in both curr set and prev set.'''
     master_set = []
@@ -372,20 +428,23 @@ def find_shortest_distances(curr_cnts, prev_cnts):
     curr = [get_center(contour) for contour in curr_cnts]
     prev_coords = [get_center(contour) for contour in prev_cnts]
 
-    for x,y in curr:
+    print "Looking at curr: {} and prev: {}".format(curr, prev_coords)
+    for x, y, r in curr:
         print "X:%s,Y:%s, prev:%s" % (x, y, prev_coords)
         best_dist = maxint
         best_pair = None
+        matched_blue = None
 
-        for p_x, p_y in prev_coords:
+        for idx, (p_x, p_y, _) in enumerate(prev_coords):
             print "P_x: %s, p_y: %s" % (p_x, p_y)
-            dist = sqrt((x-p_x)**2 + (y-p_y)**2)
+            dist = sqrt((x - p_x)**2 + (y - p_y)**2)
             print "Dist: %s" % dist
             if dist < best_dist:
                 best_dist = dist
                 best_pair = p_x, p_y
-        #Associate current x,y to optimal distance pair
-        master_set.append([best_pair, (x,y)])
+                matched_blue = blues[idx]
+        # Associate current x,y to optimal distance pair
+        master_set.append([best_pair, (x, y), r, matched_blue])
 
     return master_set
 
@@ -403,12 +462,49 @@ def anticipate_the_future(matched_pairs):
         new_x = first_x + 2*(sec_x-first_x)
         new_y = first_y + 2*(sec_y-first_y)
 
-        future_locs.append([(sec_x,sec_y), (new_x, new_y)])
+        # Second coords, future coords, radius
+        future_locs.append([(sec_x,sec_y), (new_x, new_y), coord_set[2]])
 
     print "Future %s " % future_locs
     return future_locs
 
+
+def determine_alpha_circle(matched_coords):
+    '''
+    matched_coords- Of the form
+        [[(prev_x, prev_y_y), (curr_x, curr_y), curr_radius, is_blue],
+         [...], [...]]
+    '''
+
+    def extract_prev_x(coord_set):
+        return coord_set[0][0]
+
+    def extract_prev_y(coord_set):
+        return coord_set[0][1]
+
+    for pairings in matched_coords:
+        curr_focus_x = pairings[1][0]
+        curr_focus_y = pairings[1][1]
+        # NOTE: Going to use curr radius to approximate extents of previous
+        # contours. Hopefully will be close enough.
+        curr_rad = pairings[2]
+
+        min_prev_x = min(matched_coords, key=extract_prev_x)
+        min_prev_y = min(matched_coords, key=extract_prev_y)
+
+        max_prev_x = max(matched_coords, key=extract_prev_x)
+        max_prev_y = max(matched_coords, key=extract_prev_y)
+
+        in_x_bounds = \
+            min_prev_x - curr_rad < curr_focus_x < max_prev_x + curr_rad
+        in_y_bounds = \
+            min_prev_y - curr_rad < curr_focus_y < max_prev_y + curr_rad
+
+        if not in_x_bounds and not in_y_bounds:
+            # Return just the x, y coords of alpha.
+            return pairings[1]
+
+
 if __name__ == '__main__':
         main()
-
 
