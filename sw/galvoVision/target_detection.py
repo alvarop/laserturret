@@ -141,7 +141,7 @@ def main():
             if sum(correctness) == trgs_total:
                 idx, (c_x, c_y) = call_the_shot(n_contours)
 
-                setLaserPos(c_x, c_y)
+                setLaserPos(stream, c_x, c_y)
                 # Have to add 1, because WTF STARTING ADDRESSING WITH 1.
                 laserShoot(stream, target=str(idx+1))
 
@@ -194,7 +194,8 @@ def call_the_shot(curr_n_contours):
     alpha_center = determine_alpha_circle(matched_pairs)
 
     def distance(coord_sets):
-        _, curr, _ = coord_sets
+        print "Coord set: {}".format(coord_sets)
+        _, curr, _, _ = coord_sets
         return sqrt((alpha_center[0] - curr[0])**2 +
                     (alpha_center[1] - curr[1])**2)
 
@@ -202,6 +203,7 @@ def call_the_shot(curr_n_contours):
     # "Give me the next target and the index relative to the alpha target whose
     # color is blue.
     # Return will be of the form (idx, (x, y))
+    print "ordered trgs: {}".format(ordered_trgs)
     new_trg = \
         next((i, coord_set[1]) for i, coord_set in enumerate(ordered_trgs) if coord_set[3])
 
@@ -289,6 +291,7 @@ def shift_to_shoot(contours, correctness, blues):
     PAST_CONTS = contours
     PAST_CORRECT = correctness
     PAST_BLUES = blues
+    print ("Shfting to shoot. Have blues: {}".format(blues))
 
 
 def all_feature_contours(mask):
@@ -317,9 +320,7 @@ def racial_profile(source_img, contours):
 
     # Passing in the sliced version of the frame, so need to subtract out
     # the offset.
-    print "Src Shape: {}".format(source_img.shape)
     hsv_frame = cv2.cvtColor(source_img.copy(), cv2.COLOR_BGR2HSV)
-    print "HSV_shpe : {}".format(hsv_frame.shape)
 
     def is_blue(img, cnt):
         lower_blue = np.array([110,50,50])
@@ -406,7 +407,6 @@ def draw_bounding_circle(out_img, contours):
 
 def get_center(cnt):
 
-    print "Min cir: {}".format(cv2.minEnclosingCircle(cnt))
     (x, y), radius = cv2.minEnclosingCircle(cnt)
     x, y = int(x), int(y)
     radius = int(radius)
@@ -439,6 +439,7 @@ def find_shortest_distances(curr_cnts, prev_cnts, blues):
             print "P_x: %s, p_y: %s" % (p_x, p_y)
             dist = sqrt((x - p_x)**2 + (y - p_y)**2)
             print "Dist: %s" % dist
+            print "Blue is %s" % blues[idx]
             if dist < best_dist:
                 best_dist = dist
                 best_pair = p_x, p_y
@@ -476,6 +477,8 @@ def determine_alpha_circle(matched_coords):
          [...], [...]]
     '''
 
+
+
     def extract_prev_x(coord_set):
         return coord_set[0][0]
 
@@ -489,11 +492,17 @@ def determine_alpha_circle(matched_coords):
         # contours. Hopefully will be close enough.
         curr_rad = pairings[2]
 
-        min_prev_x = min(matched_coords, key=extract_prev_x)
-        min_prev_y = min(matched_coords, key=extract_prev_y)
+        # Gives back min element, then have to extract the x, y values.
+        min_prev_x = min(matched_coords, key=extract_prev_x)[0][0]
+        min_prev_y = min(matched_coords, key=extract_prev_y)[0][1]
 
-        max_prev_x = max(matched_coords, key=extract_prev_x)
-        max_prev_y = max(matched_coords, key=extract_prev_y)
+        max_prev_x = max(matched_coords, key=extract_prev_x)[0][0]
+        max_prev_y = max(matched_coords, key=extract_prev_y)[0][1]
+
+        print "Min prev: {}, {}, Max prev: {}, {}".format(
+            min_prev_x, min_prev_y, max_prev_x, max_prev_y
+        )
+        print "Radius: {}".format(curr_rad)
 
         in_x_bounds = \
             min_prev_x - curr_rad < curr_focus_x < max_prev_x + curr_rad
