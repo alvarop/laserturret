@@ -210,6 +210,7 @@ def call_the_shot(curr_n_contours):
 
     return new_trg
 
+
 def correct_for_contour_movement(contours):
     global FC_BOUNDS, C_EXTENTS
 
@@ -321,7 +322,7 @@ def racial_profile(source_img, contours):
 
     # Passing in the sliced version of the frame, so need to subtract out
     # the offset.
-    hsv_frame = cv2.cvtColor(source_img.copy(), cv2.COLOR_RGB2HSV)
+    hsv_frame = cv2.cvtColor(source_img.copy(), cv2.COLOR_BGR2HSV)
     cv2.imwrite('/home/kathryn/workspace/laserturret//sw/galvoVision/testData/baz_' + time.strftime("%Y%m%d-%H%M%S") + ".png", hsv_frame)
 
     lower_blue = np.array([110,50,50])
