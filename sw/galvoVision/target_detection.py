@@ -6,6 +6,7 @@ from sys import maxint
 
 import cv2
 import numpy as np
+import time
 
 from galvoVision.calibrate import cameraReadThread, serialReadThread
 
@@ -216,22 +217,22 @@ def correct_for_contour_movement(contours):
 
     print "Correcting, because C_Extents %s, but FC_BOUNDS %s" % (C_EXTENTS, FC_BOUNDS)
 
-    # Left check
-    if C_EXTENTS[0] < FC_BOUNDS[0]:
-        FC_BOUNDS[0] = max(FC_BOUNDS[0] - 50, 0)
-        FC_BOUNDS[1] -= 50
-    # Right check
-    elif C_EXTENTS[1] > FC_BOUNDS[1]:
-        FC_BOUNDS[1] = min(FC_BOUNDS[1] + 50, 1919)
-        FC_BOUNDS[0] += 50
-    # Top check
-    elif C_EXTENTS[2] < FC_BOUNDS[2]:
-        FC_BOUNDS[2] = max(FC_BOUNDS[2] - 50, 0)
-        FC_BOUNDS[3] -= 50
-    # Bottom check
-    elif C_EXTENTS[3] > FC_BOUNDS[3]:
-        FC_BOUNDS[3] = min(FC_BOUNDS[0] + 50, 1079)
-        FC_BOUNDS[2] += 50
+    # Left/Right check
+    if C_EXTENTS[0] < FC_BOUNDS[0] or C_EXTENTS[1] > FC_BOUNDS[1]:
+        FC_BOUNDS[0] = max(C_EXTENTS[0] - 50, 0)
+        FC_BOUNDS[1] = min(C_EXTENTS[1] + 50, 1919)
+    # # Right check
+    # elif C_EXTENTS[1] > FC_BOUNDS[1]:
+    #     FC_BOUNDS[1] = min(C_EXTENTS[1] + 50, 1919)
+    #     FC_BOUNDS[0] += 50
+    # Top/Bottom check
+    elif C_EXTENTS[2] < FC_BOUNDS[2] or C_EXTENTS[3] > FC_BOUNDS[3]:
+        FC_BOUNDS[2] = max(C_EXTENTS[2] - 50, 0)
+        FC_BOUNDS[3] = min(C_EXTENTS[0] + 50, 1079)
+    # # Bottom check
+    # elif C_EXTENTS[3] > FC_BOUNDS[3]:
+    #     FC_BOUNDS[3] = min(C_EXTENTS[0] + 50, 1079)
+    #     FC_BOUNDS[2] += 50
     else:
         print "Didn't need to correct."
 
@@ -320,11 +321,13 @@ def racial_profile(source_img, contours):
 
     # Passing in the sliced version of the frame, so need to subtract out
     # the offset.
-    hsv_frame = cv2.cvtColor(source_img.copy(), cv2.COLOR_BGR2HSV)
+    hsv_frame = cv2.cvtColor(source_img.copy(), cv2.COLOR_RGB2HSV)
+    cv2.imwrite('/home/kathryn/workspace/laserturret//sw/galvoVision/testData/baz_' + time.strftime("%Y%m%d-%H%M%S") + ".png", hsv_frame)
+
+    lower_blue = np.array([110,50,50])
+    upper_blue = np.array([130,255,255])
 
     def is_blue(img, cnt):
-        lower_blue = np.array([110,50,50])
-        upper_blue = np.array([140,255,255])
 
         mask = np.zeros(img.shape[:2], np.uint8)
         cv2.drawContours(mask, [cnt], 0, 255, -1,
@@ -333,7 +336,13 @@ def racial_profile(source_img, contours):
         mean = cv2.mean(img, mask=mask)
         print "Mean color: {}".format(mean)
 
-        return all((mean[:3] < upper_blue) & (lower_blue < mean[:3]))
+        foo = all((mean[:3] < upper_blue) & (lower_blue < mean[:3]))
+
+        if foo:
+            cv2.imwrite('/home/kathryn/workspace/laserturret//sw/galvoVision/testData/foo_' + time.strftime("%Y%m%d-%H%M%S") + ".png", mask)
+            cv2.imwrite('/home/kathryn/workspace/laserturret/sw/galvoVision/testData/bar_' + time.strftime("%Y%m%d-%H%M%S") + ".png", img)
+
+        return foo
 
     return [is_blue(hsv_frame, cnt) for cnt in contours]
 
@@ -476,8 +485,6 @@ def determine_alpha_circle(matched_coords):
         [[(prev_x, prev_y_y), (curr_x, curr_y), curr_radius, is_blue],
          [...], [...]]
     '''
-
-
 
     def extract_prev_x(coord_set):
         return coord_set[0][0]
