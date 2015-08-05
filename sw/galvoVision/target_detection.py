@@ -117,6 +117,7 @@ def main():
                 # If at least one target in the set is blue, shift to shoot.
                 if sum(blues) >= 1:
                     shift_to_shoot(n_contours, correctness, blues)
+                    print "Passed in {} blues, and global is {}".format(blues, PAST_BLUES)
 
             draw(frame, n_contours)
 
@@ -138,7 +139,7 @@ def main():
 
             # Correct is the number of trgs which met criteria for being a
             # target at all.
-            print "Within shoot, FC_Bounds are: {}".format(FC_BOUNDS)
+            print "Within shoot, FC_Bounds are: {}, BLUES: {}".format(FC_BOUNDS, PAST_BLUES)
             if sum(correctness) == trgs_total:
                 idx, (c_x, c_y) = call_the_shot(n_contours)
 
@@ -293,7 +294,7 @@ def shift_to_shoot(contours, correctness, blues):
     PAST_CONTS = contours
     PAST_CORRECT = correctness
     PAST_BLUES = blues
-    print ("Shfting to shoot. Have blues: {}".format(blues))
+    print ("Shifting to shoot. Have blues: {}".format(blues))
 
 
 def all_feature_contours(mask):
@@ -432,28 +433,33 @@ def draw_the_future(out_img, future_pairs):
 
 def find_shortest_distances(curr_cnts, prev_cnts, blues):
     '''Naively assume that for a single coord, shortest distance
-    will be a 1-to-1 for all in both curr set and prev set.'''
+    will be a 1-to-1 for all in both curr set and prev set.
+    Going to enforce that as a greedy selection.'''
     master_set = []
 
     curr = [get_center(contour) for contour in curr_cnts]
     prev_coords = [get_center(contour) for contour in prev_cnts]
 
-    print "Looking at curr: {} and prev: {}".format(curr, prev_coords)
+    print "Looking at curr: {} and prev: {}, with prev_blues: {}".format(curr, prev_coords, blues)
     for x, y, r in curr:
         print "X:%s,Y:%s, prev:%s" % (x, y, prev_coords)
         best_dist = maxint
         best_pair = None
         matched_blue = None
+        best_index = None
 
         for idx, (p_x, p_y, _) in enumerate(prev_coords):
             print "P_x: %s, p_y: %s" % (p_x, p_y)
             dist = sqrt((x - p_x)**2 + (y - p_y)**2)
             print "Dist: %s" % dist
-            print "Blue is %s" % blues[idx]
-            if dist < best_dist:
-                best_dist = dist
-                best_pair = p_x, p_y
-                matched_blue = blues[idx]
+        if dist < best_dist:
+            best_dist = dist
+            best_pair = p_x, p_y
+            matched_blue = blues[idx]
+            print "Blue is %s" % matched_blue
+            best_index = idx
+        # Greedy removal of the lowest distance match for a given point.
+        prev_coords.pop(best_index)
         # Associate current x,y to optimal distance pair
         master_set.append([best_pair, (x, y), r, matched_blue])
 
