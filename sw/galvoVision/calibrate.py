@@ -302,7 +302,7 @@ def main():
     readThread.daemon = True
     readThread.start()
 
-    setLaserPos(X_CENTER, Y_CENTER)
+    setLaserPos(X_CENTER, Y_CENTER, stream)
     setLaserState(False, stream)
 
     cameraThread = cameraReadThread(cam)
