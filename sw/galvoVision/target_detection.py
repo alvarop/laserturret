@@ -40,7 +40,7 @@ def main():
     cameraThread.daemon = True
     cameraThread.start()
 
-    exposure = 25
+    exposure = 20
 
     os.system("v4l2-ctl -d " + str(args.v_input) + " -c focus_auto=0,exposure_auto=1")
     os.system("v4l2-ctl -d " + str(args.v_input) + " -c focus_absolute=0,exposure_absolute=" + str(exposure))
@@ -104,7 +104,7 @@ def main():
             n_contours = get_n_contours(contours, trgs_total)
 
             # Lost the lock. Shift back to init.
-            if not n_contours or not sum(correctness) >= trgs_req_to_lock:
+            if not len(n_contours) >= trgs_req_to_lock:
                 shift_to_init()
 
             # Make sure we continue to follow contour extents.
@@ -120,7 +120,7 @@ def main():
 
                 # If at least one target in the set is blue, shift to shoot.
                 if sum(blues) >= 1:
-                    shift_to_shoot(n_contours, correctness, blues)
+                    shift_to_shoot(n_contours, blues)
                     print "Passed in {} blues, and global is {}".format(blues, PAST_BLUES)
 
             draw(frame, n_contours)
@@ -291,7 +291,7 @@ def shift_to_locked(contours):
     print "Moved to LOCKED with window bounds: %s" % FC_BOUNDS
 
 
-def shift_to_shoot(contours, correctness, blues):
+def shift_to_shoot(contours, blues):
     global LOCKED_STATE, SHOOT_STATE
     global PAST_CONTS, PAST_CORRECT, PAST_BLUES
     """
@@ -301,7 +301,6 @@ def shift_to_shoot(contours, correctness, blues):
     SHOOT_STATE = True
 
     PAST_CONTS = contours
-    PAST_CORRECT = correctness
     PAST_BLUES = blues
     print ("Shifting to shoot. Have blues: {}".format(blues))
 
@@ -391,17 +390,18 @@ def get_n_contours(all_contours, n):
     max_indices = np.argsort(-areas)[:20]
     max_contours = [all_contours[idx] for idx in max_indices]
 
+    print "All Max Contours: {}".format([cv2.contourArea(x) for x in max_contours])
     c_sel = \
-        [10000 > cv2.contourArea(c) > 500 and cv2.isContourConvex(c) for c in max_contours]
-
-    print "Criteria mask is {}".format(c_sel)
+        [10000 > cv2.contourArea(c) > 200 for c in max_contours]
+        #[10000 > cv2.contourArea(c) > 200 and cv2.isContourConvex(c) for c in max_contours]
+    #print "Criteria mask is {}".format(c_sel)
     # print "Area of MAX: %s" % [cv2.contourArea(x) for x in max_contours]
 
-    print "Looking at contours %s" % [cv2.contourArea(x) for x in max_contours]
     #meets_criteria = [10000 > cv2.contourArea(x) > 500 for x in max_contours]
 
     #return max_contours, meets_criteria
     qualifiers = list(compress(max_contours, c_sel))[:n]
+    print "Sizes {}, at coords {}".format([cv2.contourArea(x) for x in qualifiers], [get_center(x) for x in qualifiers])
 
     return qualifiers
 
