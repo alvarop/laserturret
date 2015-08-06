@@ -39,14 +39,14 @@ connecting = True
 
 stream.write('laser 1\n')
 
-# X_MIN = 230
-# X_MAX = 2230
-X_MIN = 700
-X_MAX = 1800
+
+MARGIN = 256
+X_MIN = 0 + MARGIN
+X_MAX = 4096 - MARGIN
 X_RANGE = (X_MAX - X_MIN)
 
-Y_MIN = 1100
-Y_MAX = 2500
+Y_MIN = 0 + MARGIN
+Y_MAX = 4096 - MARGIN
 Y_RANGE = (Y_MAX - Y_MIN)
 
 X_CENTER = X_RANGE/ 2.0 + X_MIN
@@ -72,22 +72,23 @@ def drawCrircle(xCenter,yCenter,radius):
 
 	stream.write('laser 1\n')
 
-time.sleep(10)
+# time.sleep(10)
 
-for dummy in range(50):
-	drawCrircle(X_CENTER, Y_CENTER, 100)
-	drawCrircle(X_CENTER + X_RANGE/4, Y_CENTER + Y_RANGE/4, 100)
-	drawCrircle(X_CENTER - X_RANGE/4, Y_CENTER + Y_RANGE/4, 100)
-	drawCrircle(X_CENTER + X_RANGE/4, Y_CENTER - Y_RANGE/4, 100)
-	drawCrircle(X_CENTER - X_RANGE/4, Y_CENTER - Y_RANGE/4, 100)
+# for dummy in range(50):
+# 	drawCrircle(X_CENTER, Y_CENTER, 100)
+# 	drawCrircle(X_CENTER + X_RANGE/4, Y_CENTER + Y_RANGE/4, 100)
+# 	drawCrircle(X_CENTER - X_RANGE/4, Y_CENTER + Y_RANGE/4, 100)
+# 	drawCrircle(X_CENTER + X_RANGE/4, Y_CENTER - Y_RANGE/4, 100)
+# 	drawCrircle(X_CENTER - X_RANGE/4, Y_CENTER - Y_RANGE/4, 100)
 
 # Circle
-# stream.write('laser 0\n')
-# for x in range(MAX_RANGE * 10):
-# 	xPos = -math.sin(x * math.pi * 2.0 / MAX_RANGE) * X_RANGE/2 + X_CENTER
-# 	yPos = math.cos(x * math.pi * 2.0 / MAX_RANGE) * Y_RANGE/2 + Y_CENTER
-# 	stream.write('g 0 ' + str(int(xPos)) + '\n' + 'g 1 ' + str(int(yPos)) + '\n')
-# 	time.sleep(0.002)
+stream.write('laser 1\n')
+for x in range(MAX_RANGE * 10):
+	xPos = -math.sin(x * math.pi * 2.0 / MAX_RANGE) * X_RANGE/2 + X_CENTER
+	yPos = math.cos(x * math.pi * 2.0 / MAX_RANGE) * Y_RANGE/2 + Y_CENTER
+	stream.write('g 0 ' + str(int(xPos)) + '\n' + 'g 1 ' + str(int(yPos)) + '\n')
+	time.sleep(0.002)
+stream.write('laser 0\n')
 
 # Grid
 # for x in range(X_MIN, X_MAX + X_RANGE/10, X_RANGE/10):

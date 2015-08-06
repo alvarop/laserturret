@@ -273,7 +273,7 @@ def removeOutliers(pointList):
     return pointList, removedPoints
 
 cam = 1
-exposure = 25
+exposure = 5
 
 MARGIN = 256
 X_MIN = 0 + MARGIN
