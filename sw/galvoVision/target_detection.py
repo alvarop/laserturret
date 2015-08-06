@@ -334,7 +334,7 @@ def racial_profile(source_img, contours):
     hsv_frame = cv2.cvtColor(source_img.copy(), cv2.COLOR_BGR2HSV)
     cv2.imwrite('/home/kathryn/workspace/laserturret//sw/galvoVision/testData/baz_' + time.strftime("%Y%m%d-%H%M%S") + ".png", hsv_frame)
 
-    lower_blue = np.array([110,50,50])
+    lower_blue = np.array([105,50,20])
     upper_blue = np.array([130,255,255])
 
     def is_blue(img, cnt):
