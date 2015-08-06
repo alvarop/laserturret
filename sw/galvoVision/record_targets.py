@@ -3,7 +3,6 @@ import argparse
 import cv2
 import numpy as np
 
-cap = cv2.VideoCapture(0)
 
 def parse_args():
 
@@ -19,10 +18,17 @@ def main():
     args = parse_args()
 
     cap = cv2.VideoCapture(args.v_input)
+    cap.set(3, 1920)
+    cap.set(4, 1080)
+
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    print "Reading with W: {}, H: {}".format(w, h)
 
     # Define the codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter('output.avi', fourcc, 20.0, (1920, 1080))
+    out = cv2.VideoWriter('output.avi', fourcc, 20.0, (w, h))
 
     while cap.isOpened():
         ret, frame = cap.read()
