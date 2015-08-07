@@ -25,7 +25,7 @@ class serialReadThread(threading.Thread):
                 print "serial error"
 
 class galvoController():
-    def __init__(self, streamFileName = None):
+    def __init__(self, streamFileName = None, shotDelay = 0.01):
 
         if streamFileName:
             self.stream = serial.Serial(streamFileName)
@@ -35,6 +35,8 @@ class galvoController():
             self.readThread.daemon = True
             self.readThread.start()
 
+        self.shotDelay = shotDelay
+        self.lastShotTime = time.time()
         self.dotTable = []
 
     def loadDotTable(self,filename):
@@ -60,7 +62,10 @@ class galvoController():
         self.stream.write("g 1 " + str(y) + "\n")
 
     def laserShoot(self, target = '*', id = '00'):
-        self.stream.write('s [' + target + 'I' + id + ']\n')
+        now = time.time()
+        if now > (self.lastShotTime + self.shotDelay):
+            self.stream.write('s [' + target + 'I' + id + ']\n')
+            self.lastShotTime = now
 
     def addMidPoints(self, pointList, dupeThreshold = 5):
         newPointList = copy.copy(pointList)
