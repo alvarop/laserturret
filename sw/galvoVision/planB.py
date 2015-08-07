@@ -51,7 +51,7 @@ def findZeDot(gray):
     # 
     #  Find general area (200x200px) where dot is
     # 
-    squareSize = 200
+    squareSize = 100
     maxCol, maxRow, maxVal = findDot(gray, squareSize, squareSize)
     # print "Maximum at: (", maxCol, ",", maxRow, ")"
     # cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
@@ -67,7 +67,7 @@ def findZeDot(gray):
     # 
     # Narrow down to a 100x1000px area
     # 
-    squareSize = 100
+    squareSize = 50
     maxCol, maxRow, maxVal = findDot(gray[newRows[0]:newRows[1], newCols[0]:newCols[1]], squareSize, squareSize)
     maxCol += newCols[0]
     maxRow += newRows[0]
@@ -85,7 +85,7 @@ def findZeDot(gray):
     # 
     # Narrow down to a 25x25px area and move by 1 pixel for better resolution
     # 
-    squareSize = 25
+    squareSize = 15
     maxCol, maxRow, maxVal = findDot(gray[newRows[0]:newRows[1], newCols[0]:newCols[1]], squareSize, 1)
     maxCol += newCols[0]
     maxRow += newRows[0]
@@ -142,8 +142,8 @@ def getPointBounds(pointList, frame = (0,0,1920,1080), margin = 0):
 
 cam = 1
 exposure = 5
-
-shooting = False
+scaleFactor = 1080.0/720.0
+shooting = True
 
 if shooting:
     if len(sys.argv) < 2:
@@ -162,9 +162,12 @@ controller.loadDotTable('dotTable.csv')
 # TODO - pass as parameter?
 imgBounds = getPointBounds(controller.dotTable, margin=25)
 
+# Convert image bounds to new coordinate system
+imgBounds = (int(imgBounds[0]/scaleFactor), int(imgBounds[1]/scaleFactor), int(imgBounds[2]/scaleFactor), int(imgBounds[3]/scaleFactor))
+
 print('New image bounds: (' + str(imgBounds[0]) + ',' +str(imgBounds[1]) + ',' +str(imgBounds[2]) + ',' + str(imgBounds[3]) + ')')
 
-cameraThread = cameraReadThread(cam)
+cameraThread = cameraReadThread(cam, width=1280, height=720)
 cameraThread.daemon = True
 cameraThread.start()
 
@@ -193,7 +196,7 @@ while running:
     if maxVal > 100:
         # print maxVal
         if shooting:
-            laserPoint = controller.getLaserPos(x, y)
+            laserPoint = controller.getLaserPos(int(x * scaleFactor), int(y * scaleFactor))
             laserX = laserPoint[0]
             laserY = laserPoint[1]
             controller.setLaserPos(laserX, laserY)
