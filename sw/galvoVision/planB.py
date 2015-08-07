@@ -167,7 +167,7 @@ imgBounds = (int(imgBounds[0]/scaleFactor), int(imgBounds[1]/scaleFactor), int(i
 
 print('New image bounds: (' + str(imgBounds[0]) + ',' +str(imgBounds[1]) + ',' +str(imgBounds[2]) + ',' + str(imgBounds[3]) + ')')
 
-cameraThread = cameraReadThread(cam, width=1280, height=720)
+cameraThread = cameraReadThread(cam, width=int(1920/scaleFactor), height=int(1080/scaleFactor))
 cameraThread.daemon = True
 cameraThread.start()
 
