@@ -14,6 +14,8 @@
 # laser setting from pixel value
 # 
 
+from galvoController import galvoController
+from cameraReadThread import cameraReadThread
 import sys
 import argparse
 import cv2
@@ -25,61 +27,11 @@ import time
 import os
 import numpy as np
 
-class serialReadThread(threading.Thread):
-    def __init__(self, inStream):
-        super(serialReadThread, self).__init__()
-        self.stream = inStream
-        self.running = 1
-
-    def run(self):
-        while self.running:
-            try:
-                line = self.stream.readline(50)
-                if line:
-                    print line
-            except serial.SerialException:
-                print "serial error"
-
-class cameraReadThread(threading.Thread):
-    def __init__(self, cam):
-        super(cameraReadThread, self).__init__()
-        self.cap = cv2.VideoCapture(cam)
-        self.cap.set(3, 1920)
-        self.cap.set(4, 1080)
-        w = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        h = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        print("Resolution: (" + str(int(w)) + "," + str(int(h)) + ")")
-
-        self.running = 1
-        self.frameReady = False
-
-    def run(self):
-        while self.running:
-            _, self.frame = self.cap.read()
-            self.frameReady = True
-
-    def getFrame(self):
-        while(self.frameReady == False):
-            time.sleep(0.001)
-
-        self.frameReady = False
-        return self.frame
-
-def setLaserState(state, stream):
-    if(state):
-        stream.write('laser 1\n')
-    else:
-        stream.write('laser 0\n')
-
-def setLaserPos(x, y, stream):
-    stream.write("g 0 " + str(x) + "\n")
-    stream.write("g 1 " + str(y) + "\n")
-
-def setLaserAndTakePhoto(x, y, cameraThread, stream):
-    setLaserState(True, stream)
-    setLaserPos(x,y, stream)
+def setLaserAndTakePhoto(x, y, cameraThread):
+    controller.setLaserState(True)
+    controller.setLaserPos(x,y)
     time.sleep(0.1)
-    setLaserState(False, stream)
+    controller.setLaserState(False)
     return cameraThread.getFrame()
 
 def constrain(point, lBound, uBound):
@@ -272,122 +224,183 @@ def removeOutliers(pointList):
 
     return pointList, removedPoints
 
-def main():
-    cam = 1
-    exposure = 25
+def mouseEvent(event, x, y, flags, param):
+    global height
+    global width
+    global bounds
+    global controller
+    
+    xPos = int((-x/float(width) + 1) * X_RANGE + X_MIN)
+    yPos = int((-y/float(height) + 1) * Y_RANGE + Y_MIN)
 
-    MARGIN = 256
-    X_MIN = 0 + MARGIN
-    X_MAX = 4096 - MARGIN
+    if event == cv2.EVENT_MOUSEMOVE:    
+        # print "move", xPos, yPos
+        controller.setLaserPos(xPos, yPos)
+    elif event == cv2.EVENT_LBUTTONDOWN:
+        print "adding bound point", xPos, yPos
+        bounds.append([xPos, yPos])
+
+cam = 1
+exposure = 25
+bounds = []
+
+height = 500
+width = 500
+
+MARGIN = 256
+
+# 
+# Default values
+# 
+X_MIN = 0 + MARGIN
+X_MAX = 4096 - MARGIN
+
+Y_MIN = 0 + MARGIN
+Y_MAX = 4096 - MARGIN
+
+X_RANGE = (X_MAX - X_MIN)
+Y_RANGE = (Y_MAX - Y_MIN)
+
+X_CENTER = X_RANGE/ 2.0 + X_MIN
+Y_CENTER = Y_RANGE/ 2.0 + Y_MIN
+
+if len(sys.argv) < 2:
+    print 'Usage: ', sys.argv[0], '/path/to/serial/device'
+    sys.exit()
+
+streamFileName = sys.argv[1]
+
+controller = galvoController(streamFileName)
+
+controller.setLaserPos(X_CENTER, Y_CENTER)
+controller.setLaserState(False)
+
+print('Move laser around and click on the boundaries.\nPress ESC to continue')
+
+cv2.namedWindow("trackpad")
+cv2.resizeWindow("trackpad", height, height)
+cv2.setMouseCallback("trackpad", mouseEvent)
+img = np.zeros((height,width,3), np.uint8)
+cv2.imshow("trackpad", img)
+
+controller.setLaserState(True)
+running = True
+while running:  
+    k = cv2.waitKey(1)
+    if k == 27:
+        cv2.destroyWindow("trackpad")
+        running = False
+
+controller.setLaserState(False)
+
+if len(bounds) > 1:
+    X_MIN = 1e99
+    X_MAX = 0
+    Y_MIN = 1e99
+    Y_MAX = 0
+
+    for x,y in bounds:
+        if x < X_MIN:
+            X_MIN = x
+        if x > X_MAX:
+            X_MAX = x
+        if y < Y_MIN:
+            Y_MIN = y
+        if y > Y_MAX:
+            Y_MAX = y
+
+    print('X_MIN = ' + str(X_MIN))
+    print('X_MAX = ' + str(X_MAX))
+    print('Y_MIN = ' + str(Y_MIN))
+    print('Y_MAX = ' + str(Y_MAX))
+
     X_RANGE = (X_MAX - X_MIN)
-
-    Y_MIN = 0 + MARGIN
-    Y_MAX = 4096 - MARGIN
     Y_RANGE = (Y_MAX - Y_MIN)
 
     X_CENTER = X_RANGE/ 2.0 + X_MIN
     Y_CENTER = Y_RANGE/ 2.0 + Y_MIN
 
-    if len(sys.argv) < 2:
-        print 'Usage: ', sys.argv[0], '/path/to/serial/device'
-        sys.exit()
+cameraThread = cameraReadThread(cam)
+cameraThread.daemon = True
+cameraThread.start()
 
-    streamFileName = sys.argv[1]
+os.system("v4l2-ctl -d " + str(cam) + " -c focus_auto=0,exposure_auto=1")
+os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=" + str(exposure))
 
-    stream = serial.Serial(streamFileName)
+controller.setLaserState(False)
+time.sleep(0.05)
+dark = cameraThread.getFrame()
+# cv2.imwrite('dark.png', dark)
+time.sleep(0.05)
 
-    # Start readThread as daemon so it will automatically close on program exit
-    readThread = serialReadThread(stream)
-    readThread.daemon = True
-    readThread.start()
+comb = dark
 
-    setLaserPos(X_CENTER, Y_CENTER, stream)
-    setLaserState(False, stream)
+# Dummy read
+setLaserAndTakePhoto(X_CENTER, Y_CENTER, cameraThread)
 
-    cameraThread = cameraReadThread(cam)
-    cameraThread.daemon = True
-    cameraThread.start()
+dotTable = []
 
-    os.system("v4l2-ctl -d " + str(cam) + " -c focus_auto=0,exposure_auto=1")
-    os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=" + str(exposure))
+random.seed()
 
-    setLaserState(False, stream)
-    time.sleep(0.05)
-    dark = cameraThread.getFrame()
-    # cv2.imwrite('dark.png', dark)
-    time.sleep(0.05)
+for laserYPos in range(Y_MIN, Y_MAX, Y_RANGE/10):
+    for laserXPos in range(X_MIN, X_MAX, X_RANGE/10):
 
-    comb = dark
+        laserY = laserYPos
+        laserX = laserXPos
 
-    # Dummy read
-    setLaserAndTakePhoto(X_CENTER, Y_CENTER, cameraThread, stream)
+        searching = True
+        attempts = 0
 
-    dotTable = []
+        while searching:
+            dot = setLaserAndTakePhoto(laserX, laserY, cameraThread)
+            diff = cv2.absdiff(dark, dot)
 
-    random.seed()
+            _, gray = cv2.threshold(diff, 32, 255, cv2.THRESH_TOZERO)
+            dotX, dotY = findZeDot(gray)
 
-    for laserYPos in range(Y_MIN, Y_MAX, Y_RANGE/10):
-        for laserXPos in range(X_MIN, X_MAX, X_RANGE/10):
+            # If a dot is 'found' in the top left corner, there's a great chance it's a miss
+            if dotX < 10 and dotY < 10:
+                print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + " FAIL")
 
-            laserY = laserYPos
-            laserX = laserXPos
+                # Move the laser a little bit and try again
+                # How much we move depends on how many retries we've had
+                # Usually just re-capturing the image works, but sometimes
+                # we have to move it a bit
+                laserY = laserYPos + random.randint(-attempts, attempts)
+                laserX = laserXPos + random.randint(-attempts, attempts)
 
-            searching = True
-            attempts = 0
+                attempts += 1
 
-            while searching:
-                dot = setLaserAndTakePhoto(laserX, laserY, cameraThread, stream)
-                diff = cv2.absdiff(dark, dot)
-
-                _, gray = cv2.threshold(diff, 32, 255, cv2.THRESH_TOZERO)
-                dotX, dotY = findZeDot(gray)
-
-                # If a dot is 'found' in the top left corner, there's a great chance it's a miss
-                if dotX < 10 and dotY < 10:
-                    print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + " FAIL")
-
-                    # Move the laser a little bit and try again
-                    # How much we move depends on how many retries we've had
-                    # Usually just re-capturing the image works, but sometimes
-                    # we have to move it a bit
-                    laserY = laserYPos + random.randint(-attempts, attempts)
-                    laserX = laserXPos + random.randint(-attempts, attempts)
-
-                    attempts += 1
-
-                    # Give up after 5 attempts
-                    if attempts > 5:
-                        print("Giving up")
-                        searching = False
-                    else:
-                        print('trying ' + str(laserX) + ',' + str(laserY))
-                else:
-                    print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY))
-                    # Only save table data if we found a dot
-                    dotTable.append([laserX, laserY, dotX, dotY])
-
-                    comb = cv2.absdiff(comb, diff)
-
+                # Give up after 5 attempts
+                if attempts > 5:
+                    print("Giving up")
                     searching = False
+                else:
+                    print('trying ' + str(laserX) + ',' + str(laserY))
+            else:
+                print(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY))
+                # Only save table data if we found a dot
+                dotTable.append([laserX, laserY, dotX, dotY])
 
-    print("Removing outliers")
-    dotTable, removedTable = removeOutliers(dotTable)
-    print 'removed ', removedTable
-    print("Done removing outliers")
+                comb = cv2.absdiff(comb, diff)
 
-    dotFile = open('dotTable.csv', 'w')
-    for laserX, laserY, dotX, dotY in dotTable:
-        dotFile.write(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + "\n")
-    dotFile.close()
+                searching = False
 
-    print("Preparing image")
-    for laserX, laserY, dotX, dotY in dotTable:
-        cv2.circle(comb, (dotX, dotY), 5, [0,0,255])
+print("Removing outliers")
+dotTable, removedTable = removeOutliers(dotTable)
+print 'removed ', removedTable
+print("Done removing outliers")
 
-    cv2.imwrite('img/comb.png', comb)
-    print("Done!")
+dotFile = open('dotTable.csv', 'w')
+for laserX, laserY, dotX, dotY in dotTable:
+    dotFile.write(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + "\n")
+dotFile.close()
 
-    setLaserState(False, stream)
+print("Preparing image")
+for laserX, laserY, dotX, dotY in dotTable:
+    cv2.circle(comb, (dotX, dotY), 5, [0,0,255])
 
-if __name__ == '__main__':
-        main()
+cv2.imwrite('img/comb.png', comb)
+print("Done!")
+
+controller.setLaserState(False)
