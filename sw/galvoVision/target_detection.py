@@ -40,7 +40,7 @@ def main():
     cameraThread.daemon = True
     cameraThread.start()
 
-    exposure = 20
+    exposure = 15
 
     os.system("v4l2-ctl -d " + str(args.v_input) + " -c focus_auto=0,exposure_auto=1")
     os.system("v4l2-ctl -d " + str(args.v_input) + " -c focus_absolute=0,exposure_absolute=" + str(exposure))
@@ -160,6 +160,7 @@ def main():
             #     laserShoot(stream)
             curr_trg = next(compress(PAST_CONTS, PAST_BLUES))
             c_x, c_y, _ = get_center(curr_trg)
+            draw_bounding_circle(frame, curr_trg)
 
             setLaserPos(stream, c_x, c_y)
             laserShoot(stream)
@@ -230,7 +231,7 @@ def correct_for_contour_movement(contours):
 
     # Left/Right check
     if C_EXTENTS[0] < FC_BOUNDS[0] or C_EXTENTS[1] > FC_BOUNDS[1]:
-        FC_BOUNDS[0] = max(C_EXTENTS[0] - 50, 0)
+        FC_BOUNDS[0] = max(C_EXTENTS[0] - 100, 0)
         FC_BOUNDS[1] = min(C_EXTENTS[1] + 50, 1919)
     # # Right check
     # elif C_EXTENTS[1] > FC_BOUNDS[1]:
@@ -238,8 +239,8 @@ def correct_for_contour_movement(contours):
     #     FC_BOUNDS[0] += 50
     # Top/Bottom check
     elif C_EXTENTS[2] < FC_BOUNDS[2] or C_EXTENTS[3] > FC_BOUNDS[3]:
-        FC_BOUNDS[2] = max(C_EXTENTS[2] - 50, 0)
-        FC_BOUNDS[3] = min(C_EXTENTS[0] + 50, 1079)
+        FC_BOUNDS[2] = max(C_EXTENTS[2] - 100, 0)
+        FC_BOUNDS[3] = min(C_EXTENTS[0] + 100, 1079)
     # # Bottom check
     # elif C_EXTENTS[3] > FC_BOUNDS[3]:
     #     FC_BOUNDS[3] = min(C_EXTENTS[0] + 50, 1079)
@@ -286,8 +287,8 @@ def shift_to_locked(contours):
 
     update_contour_extents(contours)
     # Left, Right, Up, Down
-    FC_BOUNDS = [C_EXTENTS[0], min(C_EXTENTS[0] + 500, 1919),
-                 C_EXTENTS[2], min(C_EXTENTS[2] + 250, 1079)]
+    FC_BOUNDS = [max(C_EXTENTS[0] - 100, 0), min(C_EXTENTS[0] + 500, 1919),
+                 max(C_EXTENTS[2] - 100, 0), min(C_EXTENTS[2] + 250, 1079)]
     print "Moved to LOCKED with window bounds: %s" % FC_BOUNDS
 
 
@@ -430,7 +431,7 @@ def draw_bounding_circle(out_img, contours):
         (x, y), radius = cv2.minEnclosingCircle(c)
         center = (int(x), int(y))
         radius = int(radius)
-        cv2.circle(out_img, center, radius, (0, 0, 255), 3)
+        cv2.circle(out_img, center, radius, (0, 0, 255), 5)
 
 
 def get_center(cnt):
@@ -547,5 +548,5 @@ def draw_the_future(out_img, future_pairs):
 
 
 if __name__ == '__main__':
-        main()
+    main()
 
