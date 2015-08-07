@@ -224,17 +224,41 @@ def removeOutliers(pointList):
 
     return pointList, removedPoints
 
+def mouseEvent(event, x, y, flags, param):
+    global height
+    global width
+    global bounds
+    global controller
+    
+    xPos = int((-x/float(width) + 1) * X_RANGE + X_MIN)
+    yPos = int((-y/float(height) + 1) * Y_RANGE + Y_MIN)
+
+    if event == cv2.EVENT_MOUSEMOVE:    
+        # print "move", xPos, yPos
+        controller.setLaserPos(xPos, yPos)
+    elif event == cv2.EVENT_LBUTTONDOWN:
+        print "adding bound point", xPos, yPos
+        bounds.append([xPos, yPos])
+
 cam = 1
 exposure = 25
+bounds = []
+
+height = 500
+width = 500
 
 MARGIN = 256
 
+# 
+# Default values
+# 
 X_MIN = 0 + MARGIN
 X_MAX = 4096 - MARGIN
-X_RANGE = (X_MAX - X_MIN)
 
 Y_MIN = 0 + MARGIN
 Y_MAX = 4096 - MARGIN
+
+X_RANGE = (X_MAX - X_MIN)
 Y_RANGE = (Y_MAX - Y_MIN)
 
 X_CENTER = X_RANGE/ 2.0 + X_MIN
@@ -250,6 +274,51 @@ controller = galvoController(streamFileName)
 
 controller.setLaserPos(X_CENTER, Y_CENTER)
 controller.setLaserState(False)
+
+print('Move laser around and click on the boundaries.\nPress ESC to continue')
+
+cv2.namedWindow("trackpad")
+cv2.resizeWindow("trackpad", height, height)
+cv2.setMouseCallback("trackpad", mouseEvent)
+img = np.zeros((height,width,3), np.uint8)
+cv2.imshow("trackpad", img)
+
+controller.setLaserState(True)
+running = True
+while running:  
+    k = cv2.waitKey(1)
+    if k == 27:
+        cv2.destroyWindow("trackpad")
+        running = False
+
+controller.setLaserState(False)
+
+if len(bounds) > 1:
+    X_MIN = 1e99
+    X_MAX = 0
+    Y_MIN = 1e99
+    Y_MAX = 0
+
+    for x,y in bounds:
+        if x < X_MIN:
+            X_MIN = x
+        if x > X_MAX:
+            X_MAX = x
+        if y < Y_MIN:
+            Y_MIN = y
+        if y > Y_MAX:
+            Y_MAX = y
+
+    print('X_MIN = ' + str(X_MIN))
+    print('X_MAX = ' + str(X_MAX))
+    print('Y_MIN = ' + str(Y_MIN))
+    print('Y_MAX = ' + str(Y_MAX))
+
+    X_RANGE = (X_MAX - X_MIN)
+    Y_RANGE = (Y_MAX - Y_MIN)
+
+    X_CENTER = X_RANGE/ 2.0 + X_MIN
+    Y_CENTER = Y_RANGE/ 2.0 + Y_MIN
 
 cameraThread = cameraReadThread(cam)
 cameraThread.daemon = True
