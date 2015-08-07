@@ -51,9 +51,8 @@ def findZeDot(gray):
     # 
     #  Find general area (200x200px) where dot is
     # 
-    tmpImage = gray
     squareSize = 200
-    maxCol, maxRow, maxVal = findDot(tmpImage, squareSize, squareSize)
+    maxCol, maxRow = findDot(gray, squareSize, squareSize)
     # print "Maximum at: (", maxCol, ",", maxRow, ")"
     # cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
 
@@ -66,11 +65,10 @@ def findZeDot(gray):
     # cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
 
     # 
-    # Narrow down to a 20x20px area
+    # Narrow down to a 100x1000px area
     # 
-    tmpImage = gray[newRows[0]:newRows[1], newCols[0]:newCols[1]] # Only needed for profiling
     squareSize = 100
-    maxCol, maxRow, maxVal = findDot(tmpImage, squareSize, squareSize)
+    maxCol, maxRow = findDot(gray[newRows[0]:newRows[1], newCols[0]:newCols[1]], squareSize, squareSize)
     maxCol += newCols[0]
     maxRow += newRows[0]
     # print "Maximum at: (", maxCol, ",", maxRow, ")"
@@ -85,17 +83,16 @@ def findZeDot(gray):
     # cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,128,0), 1)
 
     # 
-    # Narrow down to a 5x5px area and move by 1 pixel for better resolution
+    # Narrow down to a 25x25px area and move by 1 pixel for better resolution
     # 
-    tmpImage = gray[newRows[0]:newRows[1], newCols[0]:newCols[1]] # Only needed for profiling
     squareSize = 25
-    maxCol, maxRow, maxVal = findDot(tmpImage, squareSize, 1)
+    maxCol, maxRow = findDot(gray[newRows[0]:newRows[1], newCols[0]:newCols[1]], squareSize, 1)
     maxCol += newCols[0]
     maxRow += newRows[0]
     # print "Maximum at: (", maxCol, ",", maxRow, ")"
-    # cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (255,255,0), 1)
+    cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (255,255,0), 1)
 
-    return (int(maxCol + squareSize/2),int(maxRow + squareSize/2), maxVal)
+    return (int(maxCol + squareSize/2),int(maxRow + squareSize/2))
 
 def getPointBounds(pointList, frame = (0,0,1920,1080), margin = 0):
     minX = frame[2]
