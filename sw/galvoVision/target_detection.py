@@ -9,7 +9,8 @@ import cv2
 import numpy as np
 import time
 
-from galvoVision.calibrate import cameraReadThread, serialReadThread
+from galvoController import galvoController
+from cameraReadThread import cameraReadThread
 
 INIT_STATE = True
 LOCKED_STATE = False
@@ -45,15 +46,13 @@ def main():
     os.system("v4l2-ctl -d " + str(args.v_input) + " -c focus_auto=0,exposure_auto=1")
     os.system("v4l2-ctl -d " + str(args.v_input) + " -c focus_absolute=0,exposure_absolute=" + str(exposure))
 
-    stream = serial.Serial(args.str_loc)
 
-    # Start readThread as daemon so it will automatically close on program exit
-    readThread = serialReadThread(stream)
-    readThread.daemon = True
-    readThread.start()
+    controller = galvoController(args.str_loc)
+    controller.loadDotTable('./workspace/laserturret/sw/galvoVision/dotTable.csv')
+    controller.setLaserState(True)
 
-    trgs_req_to_lock = 2
-    trgs_total = 2
+    trgs_req_to_lock = 1
+    trgs_total = 1
 
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
     cv2.namedWindow('masked', cv2.WINDOW_NORMAL)
@@ -121,7 +120,6 @@ def main():
                 # If at least one target in the set is blue, shift to shoot.
                 if sum(blues) >= 1:
                     shift_to_shoot(n_contours, blues)
-                    print "Passed in {} blues, and global is {}".format(blues, PAST_BLUES)
 
             draw(frame, n_contours)
 
@@ -134,16 +132,16 @@ def main():
             MOVES TO: INIT STATE
             CONDITION: Always.
             '''
+            # Want to keep track of frame's movement even though we're shooting this
+            # frame.
             contours = all_feature_contours(
                 movement_mask[FC_BOUNDS[2]:FC_BOUNDS[3],
                             FC_BOUNDS[0]:FC_BOUNDS[1]]
             )
             n_contours = get_n_contours(contours, trgs_total)
-            correct_for_contour_movement(n_contours)
+            if n_contours:
+                correct_for_contour_movement(n_contours)
 
-            # Correct is the number of trgs which met criteria for being a
-            # target at all.
-            print "Within shoot, FC_Bounds are: {}, BLUES: {}".format(FC_BOUNDS, PAST_BLUES)
             # if len(n_contours) == trgs_total:
             #     idx, (c_x, c_y) = call_the_shot(n_contours)
             #
@@ -159,11 +157,14 @@ def main():
             #     setLaserPos(stream, c_x, c_y)
             #     laserShoot(stream)
             curr_trg = next(compress(PAST_CONTS, PAST_BLUES))
-            c_x, c_y, _ = get_center(curr_trg)
-            draw_bounding_circle(frame, curr_trg)
+            c_x, c_y, r = get_center(curr_trg)
+            cv2.circle(frame, (c_x, c_y), r, (255, 0, 0), 10)
 
-            setLaserPos(stream, c_x, c_y)
-            laserShoot(stream)
+            calib_pt = controller.getLaserPos(c_x, c_y)
+            controller.setLaserPos(calib_pt[0], calib_pt[1])
+            print "Laser shooting at {}, calibrated to {}".format((c_x,c_y), calib_pt)
+            time.sleep(0.005)
+            controller.laserShoot()
 
             shift_to_init()
 
@@ -175,6 +176,7 @@ def main():
         cv2.imshow('masked', movement_mask)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
+            controller.setLaserState(False)
             break
 
 
@@ -333,7 +335,7 @@ def racial_profile(source_img, contours):
     # Passing in the sliced version of the frame, so need to subtract out
     # the offset.
     hsv_frame = cv2.cvtColor(source_img.copy(), cv2.COLOR_BGR2HSV)
-    cv2.imwrite('/home/kathryn/workspace/laserturret//sw/galvoVision/testData/baz_' + time.strftime("%Y%m%d-%H%M%S") + ".png", hsv_frame)
+    #cv2.imwrite('/home/kathryn/workspace/laserturret//sw/galvoVision/testData/baz_' + time.strftime("%Y%m%d-%H%M%S") + ".png", hsv_frame)
 
     lower_blue = np.array([105,50,20])
     upper_blue = np.array([130,255,255])
@@ -349,9 +351,9 @@ def racial_profile(source_img, contours):
 
         foo = all((mean[:3] < upper_blue) & (lower_blue < mean[:3]))
 
-        if foo:
-            cv2.imwrite('/home/kathryn/workspace/laserturret//sw/galvoVision/testData/foo_' + time.strftime("%Y%m%d-%H%M%S") + ".png", mask)
-            cv2.imwrite('/home/kathryn/workspace/laserturret/sw/galvoVision/testData/bar_' + time.strftime("%Y%m%d-%H%M%S") + ".png", img)
+        # if foo:
+        #     cv2.imwrite('/home/kathryn/workspace/laserturret//sw/galvoVision/testData/foo_' + time.strftime("%Y%m%d-%H%M%S") + ".png", mask)
+        #     cv2.imwrite('/home/kathryn/workspace/laserturret/sw/galvoVision/testData/bar_' + time.strftime("%Y%m%d-%H%M%S") + ".png", img)
 
         return foo
 
