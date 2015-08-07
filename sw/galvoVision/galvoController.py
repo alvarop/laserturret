@@ -25,13 +25,15 @@ class serialReadThread(threading.Thread):
                 print "serial error"
 
 class galvoController():
-    def __init__(self, streamFileName):
-        self.stream = serial.Serial(streamFileName)
+    def __init__(self, streamFileName = None):
 
-        # Start readThread as daemon so it will automatically close on program exit
-        self.readThread = serialReadThread(self.stream)
-        self.readThread.daemon = True
-        self.readThread.start()
+        if streamFileName:
+            self.stream = serial.Serial(streamFileName)
+
+            # Start readThread as daemon so it will automatically close on program exit
+            self.readThread = serialReadThread(self.stream)
+            self.readThread.daemon = True
+            self.readThread.start()
 
         self.dotTable = []
 

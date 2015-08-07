@@ -143,11 +143,16 @@ def getPointBounds(pointList, frame = (0,0,1920,1080), margin = 0):
 cam = 1
 exposure = 5
 
-if len(sys.argv) < 2:
-    print 'Usage: ', sys.argv[0], '/path/to/serial/device'
-    sys.exit()
+shooting = False
 
-streamFileName = sys.argv[1]
+if shooting:
+    if len(sys.argv) < 2:
+        print 'Usage: ', sys.argv[0], '/path/to/serial/device'
+        sys.exit()
+
+    streamFileName = sys.argv[1]
+else:
+    streamFileName = None
 
 controller = galvoController(streamFileName)
 controller.loadDotTable('dotTable.csv')
@@ -166,7 +171,8 @@ cameraThread.start()
 os.system("v4l2-ctl -d " + str(cam) + " -c focus_auto=0,exposure_auto=1")
 os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=" + str(exposure))
 
-controller.setLaserState(True)
+if shooting:
+    controller.setLaserState(True)
 
 cv2.namedWindow('img')
 
@@ -186,24 +192,25 @@ while running:
     # 100 is completely arbitrary value...
     if maxVal > 100:
         # print maxVal
-        laserPoint = controller.getLaserPos(x, y)
-        laserX = laserPoint[0]
-        laserY = laserPoint[1]
-        controller.setLaserPos(laserX, laserY)
-        time.sleep(0.005)
-        controller.laserShoot()
+        if shooting:
+            laserPoint = controller.getLaserPos(x, y)
+            laserX = laserPoint[0]
+            laserY = laserPoint[1]
+            controller.setLaserPos(laserX, laserY)
+            time.sleep(0.005)
+            controller.laserShoot()
 
         cv2.circle(img, (x, y), 5, [0,0,255])
 
-    
-    # cv2.imshow('img',img[imgBounds[1]:imgBounds[3], imgBounds[0]:imgBounds[2]])
+    if not shooting:
+        cv2.imshow('img',img[imgBounds[1]:imgBounds[3], imgBounds[0]:imgBounds[2]])
 
     k = cv2.waitKey(1)
     if k == 27:
         running = False
 
-controller.setLaserState(False)
-
-time.sleep(0.100)
+if shooting:
+    controller.setLaserState(False)
+    time.sleep(0.100)
 
 print("Done!")
