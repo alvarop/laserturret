@@ -4,11 +4,11 @@ import cv2
 
 
 class cameraReadThread(threading.Thread):
-    def __init__(self, cam):
+    def __init__(self, cam, width = 1920, height = 1080):
         super(cameraReadThread, self).__init__()
         self.cap = cv2.VideoCapture(cam)
-        self.cap.set(3, 1920)
-        self.cap.set(4, 1080)
+        self.cap.set(3, width)
+        self.cap.set(4, height)
         w = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         h = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
         print("Resolution: (" + str(int(w)) + "," + str(int(h)) + ")")
