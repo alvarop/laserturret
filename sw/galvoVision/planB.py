@@ -154,7 +154,7 @@ if shooting:
 else:
     streamFileName = None
 
-controller = galvoController(streamFileName)
+controller = galvoController(streamFileName, shotDelay= 0.5)
 controller.loadDotTable('dotTable.csv')
 
 # Get image margins from dotTable
