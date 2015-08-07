@@ -169,7 +169,9 @@ cameraThread.start()
 os.system("v4l2-ctl -d " + str(cam) + " -c focus_auto=0,exposure_auto=1")
 os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=" + str(exposure))
 
-controller.setLaserState(False)
+controller.setLaserState(True)
+
+cv2.namedWindow('img')
 
 running = True
 while running:
@@ -196,8 +198,8 @@ while running:
 
         cv2.circle(img, (x, y), 5, [0,0,255])
 
-    cv2.namedWindow('img')
-    cv2.imshow('img',img[imgBounds[1]:imgBounds[3], imgBounds[0]:imgBounds[2]])
+    
+    # cv2.imshow('img',img[imgBounds[1]:imgBounds[3], imgBounds[0]:imgBounds[2]])
 
     k = cv2.waitKey(1)
     if k == 27:
