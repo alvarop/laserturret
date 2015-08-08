@@ -54,7 +54,7 @@ def findZeDot(gray, locked = False):
         # 
         #  Find general area (200x200px) where dot is
         # 
-        squareSize = 100
+        squareSize = 200
         maxCol, maxRow, maxVal = findDot(gray, squareSize, squareSize)
         # print "Maximum at: (", maxCol, ",", maxRow, ")"
         # cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
@@ -65,7 +65,20 @@ def findZeDot(gray, locked = False):
         fudge = int(squareSize * 0.1)
         newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
         newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
-        # cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
+        cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
+
+        squareSize = 50
+        maxCol, maxRow, maxVal = findDot(gray, squareSize, squareSize)
+        # print "Maximum at: (", maxCol, ",", maxRow, ")"
+        # cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
+
+        # 
+        # Compute new search area (10% larger in case we caught the dot in an edge)
+        # 
+        fudge = int(squareSize * 0.1)
+        newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
+        newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
+        cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,128,128), 1)
     else:
         newRows = oldRows
         newCols = oldCols
@@ -74,7 +87,7 @@ def findZeDot(gray, locked = False):
     # Narrow down to a 100x1000px area
     # 
     # NOTE: Might want to make this smaller for 720p
-    squareSize = 20
+    squareSize = 15
     maxCol, maxRow, maxVal = findDot(gray[newRows[0]:newRows[1], newCols[0]:newCols[1]], squareSize, squareSize)
     maxCol += newCols[0]
     maxRow += newRows[0]
@@ -182,15 +195,22 @@ if shooting:
 
 cv2.namedWindow('img')
 
+lower_blue = np.array([110, 50, 50], dtype=np.uint8)
+upper_blue = np.array([130,255,255], dtype=np.uint8)
+
 locked = False
 running = True
 while cap.isOpened() and running:
     # img = cameraThread.getFrame()
+    time.sleep(0.015)
     _, img = cap.read()
     img = cv2.resize(img, (1280, 720)) 
     _, th = cv2.threshold(img, 240, 255, cv2.THRESH_TOZERO)
-    th = cv2.cvtColor(th, cv2.COLOR_BGR2GRAY)
+    # th = cv2.cvtColor(th, cv2.COLOR_BGR2GRAY)
     # _, th = cv2.threshold(th, 10, 255, cv2.THRESH_BINARY)
+
+    th = cv2.cvtColor(th, cv2.COLOR_BGR2HSV)
+    th = cv2.inRange(th, lower_blue, upper_blue)
 
     x,y, maxVal = findZeDot(th, locked)
 
