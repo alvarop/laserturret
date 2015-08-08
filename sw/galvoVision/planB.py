@@ -54,7 +54,7 @@ def findZeDot(gray, locked = False):
         # 
         #  Find general area (200x200px) where dot is
         # 
-        squareSize = 100
+        squareSize = 200
         maxCol, maxRow, maxVal = findDot(gray, squareSize, squareSize)
         # print "Maximum at: (", maxCol, ",", maxRow, ")"
         # cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
@@ -66,6 +66,19 @@ def findZeDot(gray, locked = False):
         newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
         newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
         # cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
+
+        squareSize = 50
+        maxCol, maxRow, maxVal = findDot(gray, squareSize, squareSize)
+        # print "Maximum at: (", maxCol, ",", maxRow, ")"
+        # cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
+
+        # 
+        # Compute new search area (10% larger in case we caught the dot in an edge)
+        # 
+        fudge = int(squareSize * 0.1)
+        newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
+        newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
+        # cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,128,128), 1)
     else:
         newRows = oldRows
         newCols = oldCols
@@ -73,7 +86,8 @@ def findZeDot(gray, locked = False):
     # 
     # Narrow down to a 100x1000px area
     # 
-    squareSize = 30
+    # NOTE: Might want to make this smaller for 720p
+    squareSize = 15
     maxCol, maxRow, maxVal = findDot(gray[newRows[0]:newRows[1], newCols[0]:newCols[1]], squareSize, squareSize)
     maxCol += newCols[0]
     maxRow += newRows[0]
@@ -94,7 +108,7 @@ def findZeDot(gray, locked = False):
     # 
     # Narrow down to a 25x25px area and move by 1 pixel for better resolution
     # 
-    squareSize = 15
+    squareSize = 10
     maxCol, maxRow, maxVal = findDot(gray[newRows[0]:newRows[1], newCols[0]:newCols[1]], squareSize, 1)
     maxCol += newCols[0]
     maxRow += newRows[0]
@@ -102,6 +116,7 @@ def findZeDot(gray, locked = False):
     cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (255,255,0), 1)
 
     return (int(maxCol + squareSize/2),int(maxRow + squareSize/2), maxVal)
+
 
 def getPointBounds(pointList, frame = (0,0,1920,1080), margin = 0):
     minX = frame[2]
