@@ -152,6 +152,7 @@ def getPointBounds(pointList, frame = (0,0,1920,1080), margin = 0):
 cam = 1
 exposure = 60
 scaleFactor = 1080.0/720.0
+yOffset = 6
 shooting = True
 
 oldCols = 0
@@ -191,18 +192,22 @@ if shooting:
 
 cv2.namedWindow('img')
 
+lower_blue = np.array([110, 50, 50], dtype=np.uint8)
+upper_blue = np.array([130,255,255], dtype=np.uint8)
+
 locked = False
 running = True
 while running:
     img = cameraThread.getFrame()
     _, th = cv2.threshold(img[imgBounds[1]:imgBounds[3], imgBounds[0]:imgBounds[2]], 240, 255, cv2.THRESH_TOZERO)
-    th = cv2.cvtColor(th, cv2.COLOR_BGR2GRAY)
-    # _, th = cv2.threshold(th, 10, 255, cv2.THRESH_BINARY)
+    # th = cv2.cvtColor(th, cv2.COLOR_BGR2GRAY)
+    th = cv2.cvtColor(th, cv2.COLOR_BGR2HSV)
+    th = cv2.inRange(th, lower_blue, upper_blue)
 
     x,y, maxVal = findZeDot(th, locked)
 
     x = x + imgBounds[0]
-    y = y + imgBounds[1] - 6
+    y = y + imgBounds[1] - yOffset
 
     # Only shoot if you think there's something there
     # 100 is completely arbitrary value...
@@ -217,7 +222,7 @@ while running:
             time.sleep(0.010)
             controller.laserShoot()
 
-        cv2.circle(img, (x, y), 5, [0,0,255])
+        cv2.circle(img, (x, y + yOffset), 5, [0,0,255])
     else:
         locked = False
 
