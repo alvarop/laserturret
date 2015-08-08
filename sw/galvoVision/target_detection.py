@@ -24,6 +24,7 @@ LAST_SHOT_TIME = None
 SCALE_FACTOR = 1080.0/720.0
 
 
+
 def parse_args():
 
     parser = argparse.ArgumentParser()
@@ -41,13 +42,13 @@ def main():
 
     args = parse_args()
 
-    cameraThread = cameraReadThread(args.v_input,
-                                    width=int(1920/SCALE_FACTOR),
-                                    height=int(1080/SCALE_FACTOR))
-    cameraThread.daemon = True
-    cameraThread.start()
+    # cameraThread = cameraReadThread(args.v_input,
+    #                                 width=int(1920/SCALE_FACTOR),
+    #                                 height=int(1080/SCALE_FACTOR))
+    # cameraThread.daemon = True
+    # cameraThread.start()
 
-    exposure = 50
+    # exposure = 50
 
     os.system("v4l2-ctl -d " + str(args.v_input) + " -c focus_auto=0,exposure_auto=1")
     os.system("v4l2-ctl -d " + str(args.v_input) + " -c focus_absolute=0,exposure_absolute=" + str(exposure))
@@ -57,10 +58,8 @@ def main():
     controller.loadDotTable('./workspace/laserturret/sw/galvoVision/dotTable.csv')
     controller.setLaserState(True)
 
-
-
     trgs_req_to_lock = 1
-    trgs_total = 1
+    trgs_total = 5
 
 
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
@@ -69,9 +68,18 @@ def main():
 
     fgbg = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
 
-    while (True):
+    # while (True):
+    #
+    #     frame = cameraThread.getFrame()
 
-        frame = cameraThread.getFrame()
+    cap = cv2.VideoCapture('./workspace/laserturret/sw/galvoVision/moving_targets.avi')
+    single = False
+
+    while cap.isOpened():
+
+        _, frame = cap.read()
+        frame = cv2.resize(frame, (0, 0), fx=1/SCALE_FACTOR, fy=1/SCALE_FACTOR)
+
         movement_mask = fgbg.apply(frame)
         controller.laserShoot()
 
@@ -149,8 +157,6 @@ def main():
                             FC_BOUNDS[0]:FC_BOUNDS[1]]
             )
             n_contours = get_n_contours(contours, trgs_total)
-            if n_contours:
-                correct_for_contour_movement(n_contours)
 
             # if len(n_contours) == trgs_total:
             #     idx, (c_x, c_y) = call_the_shot(n_contours)
@@ -169,11 +175,11 @@ def main():
 
             curr_trg = next(compress(PAST_CONTS, PAST_BLUES))
             c_x, c_y, r = get_center(curr_trg)
-            cv2.circle(frame, (c_x, c_y), r, (255, 0, 0), 10)
+            cv2.circle(frame, (c_x, c_y), r, (0, 0, 255), 10)
 
             calib_pt = controller.getLaserPos(int(c_x*SCALE_FACTOR), int(c_y*SCALE_FACTOR))
             controller.setLaserPos(calib_pt[0], calib_pt[1])
-            print "Laser shooting at {}, calibrated to {}".format((c_x,c_y), calib_pt)
+            print "Laser shooting at {}, calibrated to {}".format((c_x, c_y), calib_pt)
 
             if n_contours:
                 blues = racial_profile(
@@ -200,18 +206,6 @@ def main():
         if cv2.waitKey(1) & 0xFF == ord('q'):
             controller.setLaserState(False)
             break
-
-
-def setLaserPos(stream, x, y):
-    print "Setting laser pos to %s, %s" % (x, y)
-    stream.write("g 0 " + str(x) + "\n")
-    stream.write("g 1 " + str(y) + "\n")
-
-
-def laserShoot(stream, target = '*', id = '01'):
-    out_msg = 's [' + target + 'I' + id + ']\n'
-    print "Shooting with info: %s" % out_msg
-    stream.write(out_msg)
 
 
 def call_the_shot(curr_n_contours):
@@ -309,13 +303,16 @@ def shift_to_locked(contours):
     Note: Move to locked state initializes the frame clip
     extents to be the contour extents, stretched by 500 and 250.
     """
+
     INIT_STATE = False
     LOCKED_STATE = True
 
     update_contour_extents(contours)
+    print "C_Extents before changing FC: {}".format(C_EXTENTS)
+
     # Left, Right, Up, Down
-    FC_BOUNDS = [max(C_EXTENTS[0] - 100, 0), min(C_EXTENTS[0] + 500, 1919),
-                 max(C_EXTENTS[2] - 100, 0), min(C_EXTENTS[2] + 250, 1079)]
+    FC_BOUNDS = [max(C_EXTENTS[0] - 25, 0), min(C_EXTENTS[0] + 500, 1919),
+                 max(C_EXTENTS[2] - 25, 0), min(C_EXTENTS[2] + 250, 1079)]
     print "Moved to LOCKED with window bounds: %s" % FC_BOUNDS
 
 
@@ -325,11 +322,15 @@ def shift_to_shoot(contours, blues):
     """
     Input: Full set of contours, and one happens to be blue.
     """
+    correct_for_contour_movement(contours)
+
     LOCKED_STATE = False
     SHOOT_STATE = True
 
     PAST_CONTS = contours
     PAST_BLUES = blues
+
+
     print ("Shifting to shoot. Have blues: {}".format(blues))
 
 
@@ -340,7 +341,7 @@ def all_feature_contours(mask):
     cp = mask.copy()
 
     # Running w/ offset of None errored program out, so separating out func.
-    if LOCKED_STATE:
+    if LOCKED_STATE or SHOOT_STATE:
         # Offset (left, top) b/c extracting from the greater frame.
         _, contours, hierarchy = \
             cv2.findContours(cp, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE,
@@ -409,7 +410,6 @@ def draw(img_out, contours, future_pairs=None):
 
 
 def get_n_contours(all_contours, n):
-    global LOCKED_STATE
     """
     Get the n largest contours in the set.
     """
@@ -420,7 +420,7 @@ def get_n_contours(all_contours, n):
 
     print "All Max Contours: {}".format([cv2.contourArea(x) for x in max_contours])
     c_sel = \
-        [10000 > cv2.contourArea(c) > 200 for c in max_contours]
+        [10000 > cv2.contourArea(c) > 100 for c in max_contours]
         #[10000 > cv2.contourArea(c) > 200 and cv2.isContourConvex(c) for c in max_contours]
     #print "Criteria mask is {}".format(c_sel)
     # print "Area of MAX: %s" % [cv2.contourArea(x) for x in max_contours]
