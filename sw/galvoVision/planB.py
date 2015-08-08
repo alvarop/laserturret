@@ -11,6 +11,7 @@ import random
 import threading
 import time
 import os
+import random
 import numpy as np
 
 def constrain(point, lBound, uBound):
@@ -44,30 +45,35 @@ def findDot(image, squareSize, stepSize):
 
     return (maxCol, maxRow, maxVal)
 
-def findZeDot(gray):
+def findZeDot(gray, locked = False):
+    global oldCols 
+    global oldRows
     numCols = gray.shape[1]
     numRows = gray.shape[0]
+    if not locked:
+        # 
+        #  Find general area (200x200px) where dot is
+        # 
+        squareSize = 100
+        maxCol, maxRow, maxVal = findDot(gray, squareSize, squareSize)
+        # print "Maximum at: (", maxCol, ",", maxRow, ")"
+        # cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
 
-    # 
-    #  Find general area (200x200px) where dot is
-    # 
-    squareSize = 100
-    maxCol, maxRow, maxVal = findDot(gray, squareSize, squareSize)
-    # print "Maximum at: (", maxCol, ",", maxRow, ")"
-    # cv2.rectangle(img, (maxCol, maxRow), (maxCol + squareSize, maxRow + squareSize), (0,0,255), 1)
-
-    # 
-    # Compute new search area (10% larger in case we caught the dot in an edge)
-    # 
-    fudge = int(squareSize * 0.1)
-    newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
-    newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
-    # cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
+        # 
+        # Compute new search area (10% larger in case we caught the dot in an edge)
+        # 
+        fudge = int(squareSize * 0.1)
+        newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
+        newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
+        # cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
+    else:
+        newRows = oldRows
+        newCols = oldCols
 
     # 
     # Narrow down to a 100x1000px area
     # 
-    squareSize = 50
+    squareSize = 30
     maxCol, maxRow, maxVal = findDot(gray[newRows[0]:newRows[1], newCols[0]:newCols[1]], squareSize, squareSize)
     maxCol += newCols[0]
     maxRow += newRows[0]
@@ -81,6 +87,9 @@ def findZeDot(gray):
     newRows = constrain((maxRow - fudge, maxRow + squareSize + fudge), 0, numRows)
     newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
     # cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,128,0), 1)
+
+    oldCols = newCols
+    oldRows = newRows
 
     # 
     # Narrow down to a 25x25px area and move by 1 pixel for better resolution
@@ -141,9 +150,12 @@ def getPointBounds(pointList, frame = (0,0,1920,1080), margin = 0):
     return (minX, minY, maxX, maxY)
 
 cam = 1
-exposure = 5
+exposure = 60
 scaleFactor = 1080.0/720.0
 shooting = True
+
+oldCols = 0
+oldRows = 0
 
 if shooting:
     if len(sys.argv) < 2:
@@ -154,7 +166,7 @@ if shooting:
 else:
     streamFileName = None
 
-controller = galvoController(streamFileName, shotDelay= 0.5)
+controller = galvoController(streamFileName, shotDelay= 0.25)
 controller.loadDotTable('dotTable.csv')
 
 # Get image margins from dotTable
@@ -179,6 +191,7 @@ if shooting:
 
 cv2.namedWindow('img')
 
+locked = False
 running = True
 while running:
     img = cameraThread.getFrame()
@@ -186,24 +199,27 @@ while running:
     th = cv2.cvtColor(th, cv2.COLOR_BGR2GRAY)
     # _, th = cv2.threshold(th, 10, 255, cv2.THRESH_BINARY)
 
-    x,y, maxVal = findZeDot(th)
+    x,y, maxVal = findZeDot(th, locked)
 
     x = x + imgBounds[0]
-    y = y + imgBounds[1]
+    y = y + imgBounds[1] - 6
 
     # Only shoot if you think there's something there
     # 100 is completely arbitrary value...
     if maxVal > 100:
+        locked = True
         # print maxVal
         if shooting:
             laserPoint = controller.getLaserPos(int(x * scaleFactor), int(y * scaleFactor))
             laserX = laserPoint[0]
             laserY = laserPoint[1]
             controller.setLaserPos(laserX, laserY)
-            time.sleep(0.005)
+            time.sleep(0.010)
             controller.laserShoot()
 
         cv2.circle(img, (x, y), 5, [0,0,255])
+    else:
+        locked = False
 
     if not shooting:
         cv2.imshow('img',img[imgBounds[1]:imgBounds[3], imgBounds[0]:imgBounds[2]])
