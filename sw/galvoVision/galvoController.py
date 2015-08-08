@@ -61,7 +61,7 @@ class galvoController():
         self.stream.write("g 0 " + str(x) + "\n")
         self.stream.write("g 1 " + str(y) + "\n")
 
-    def laserShoot(self, target = '*', id = '00'):
+    def laserShoot(self, target = '*', id = '01'):
         now = time.time()
         if now > (self.lastShotTime + self.shotDelay):
             self.stream.write('s [' + target + 'I' + id + ']\n')
