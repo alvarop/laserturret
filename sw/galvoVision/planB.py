@@ -50,6 +50,8 @@ def findZeDot(gray, locked = False):
     global oldRows
     numCols = gray.shape[1]
     numRows = gray.shape[0]
+
+    # Only search entire image if we haven't found a target yet
     if not locked:
         # 
         #  Find general area (200x200px) where dot is
@@ -67,6 +69,10 @@ def findZeDot(gray, locked = False):
         newCols = constrain((maxCol - fudge, maxCol + squareSize + fudge), 0, numCols)
         # cv2.rectangle(img, (newCols[0], newRows[0]), (newCols[1], newRows[1]), (0,0,128), 1)
 
+
+        # 
+        # Narrow down to a 50x50px area
+        # 
         squareSize = 50
         maxCol, maxRow, maxVal = findDot(gray, squareSize, squareSize)
         # print "Maximum at: (", maxCol, ",", maxRow, ")"
@@ -84,9 +90,8 @@ def findZeDot(gray, locked = False):
         newCols = oldCols
 
     # 
-    # Narrow down to a 100x1000px area
+    # Narrow down to a 15x15px area
     # 
-    # NOTE: Might want to make this smaller for 720p
     squareSize = 15
     maxCol, maxRow, maxVal = findDot(gray[newRows[0]:newRows[1], newCols[0]:newCols[1]], squareSize, squareSize)
     maxCol += newCols[0]
@@ -106,7 +111,7 @@ def findZeDot(gray, locked = False):
     oldRows = newRows
 
     # 
-    # Narrow down to a 25x25px area and move by 1 pixel for better resolution
+    # Narrow down to a 10x10px area and move by 1 pixel for better resolution
     # 
     squareSize = 10
     maxCol, maxRow, maxVal = findDot(gray[newRows[0]:newRows[1], newCols[0]:newCols[1]], squareSize, 1)
@@ -117,7 +122,11 @@ def findZeDot(gray, locked = False):
 
     return (int(maxCol + squareSize/2),int(maxRow + squareSize/2), maxVal)
 
-
+# 
+# Go through a list of points (usually from calibration file) and figure out
+# the smallest rectangle that bounds all of them. Usually used to crop the
+# main image to only show the relevant area
+# 
 def getPointBounds(pointList, frame = (0,0,1920,1080), margin = 0):
     minX = frame[2]
     maxX = frame[0]
@@ -167,7 +176,10 @@ def getPointBounds(pointList, frame = (0,0,1920,1080), margin = 0):
 cam = 1
 exposure = 60
 scaleFactor = 1080.0/720.0
-yOffset = 6
+yOffset = 6 # hack added during competition to account for a slight offset when hittig close up targets
+
+# If False, no connection to the serial device will be attempted and live image will be displayed
+# Basically no shooting is debug mode
 shooting = True
 
 oldCols = 0
@@ -188,7 +200,7 @@ controller.loadDotTable('dotTable.csv')
 # Get image margins from dotTable
 # No need to display what we can't shoot
 # TODO - pass as parameter?
-imgBounds = getPointBounds(controller.dotTable, margin=25)
+imgBounds = getPointBounds(controller.dotTable, margin=25, frame = (0,0,int(1920/scaleFactor),int(1080/scaleFactor)))
 
 # Convert image bounds to new coordinate system
 imgBounds = (int(imgBounds[0]/scaleFactor), int(imgBounds[1]/scaleFactor), int(imgBounds[2]/scaleFactor), int(imgBounds[3]/scaleFactor))
@@ -199,6 +211,9 @@ cameraThread = cameraReadThread(cam, width=int(1920/scaleFactor), height=int(108
 cameraThread.daemon = True
 cameraThread.start()
 
+# 
+# Make sure autofocus is disabled and a known exposure is set for the webcam
+# 
 os.system("v4l2-ctl -d " + str(cam) + " -c focus_auto=0,exposure_auto=1")
 os.system("v4l2-ctl -d " + str(cam) + " -c focus_absolute=0,exposure_absolute=" + str(exposure))
 
@@ -207,6 +222,9 @@ if shooting:
 
 cv2.namedWindow('img')
 
+# 
+# (untested) bounds for HSV filtering of blue light
+# 
 lower_blue = np.array([110, 50, 50], dtype=np.uint8)
 upper_blue = np.array([130,255,255], dtype=np.uint8)
 
@@ -215,12 +233,14 @@ running = True
 while running:
     img = cameraThread.getFrame()
     _, th = cv2.threshold(img[imgBounds[1]:imgBounds[3], imgBounds[0]:imgBounds[2]], 240, 255, cv2.THRESH_TOZERO)
-    # th = cv2.cvtColor(th, cv2.COLOR_BGR2GRAY)
+    # th = cv2.cvtColor(th, cv2.COLOR_BGR2GRAY) # 'dumb' method doesn't take color, just intensity, into account
     th = cv2.cvtColor(th, cv2.COLOR_BGR2HSV)
     th = cv2.inRange(th, lower_blue, upper_blue)
 
+    # Find a target
     x,y, maxVal = findZeDot(th, locked)
 
+    # Account for image cropping
     x = x + imgBounds[0]
     y = y + imgBounds[1] - yOffset
 
@@ -230,11 +250,12 @@ while running:
         locked = True
         # print maxVal
         if shooting:
+            # Use reverse lookup to figure out which laser values to use to hit that pixel
             laserPoint = controller.getLaserPos(int(x * scaleFactor), int(y * scaleFactor))
             laserX = laserPoint[0]
             laserY = laserPoint[1]
-            controller.setLaserPos(laserX, laserY)
-            time.sleep(0.010)
+            controller.setLaserPos(laserX, laserY) # Move the laser into place
+            time.sleep(0.010) # Let's not start transmitting data immediately after issuing a move command
             controller.laserShoot()
 
         cv2.circle(img, (x, y + yOffset), 5, [0,0,255])
