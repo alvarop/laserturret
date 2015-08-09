@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # 
 # Read in lookup table, wait for mouse click, choose closest point, shoot laser
-# Currently using 50x50 lookup table, which takes a while to read in
 # 
 from galvoController import galvoController
 import numpy as np
@@ -47,6 +46,11 @@ class cameraReadThread(threading.Thread):
         self.frameReady = False
         return self.frame
 
+# 
+# Go through a list of points (usually from calibration file) and figure out
+# the smallest rectangle that bounds all of them. Usually used to crop the
+# main image to only show the relevant area
+# 
 def getPointBounds(pointList, frame = (0,0,1920,1080), margin = 0):
     minX = frame[2]
     maxX = frame[0]

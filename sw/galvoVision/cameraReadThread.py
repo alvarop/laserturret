@@ -1,7 +1,10 @@
+# 
+# This thread constantly reads out camera frames to minimize the chance of
+# getting a stale frame
+# 
 import threading
 import time
 import cv2
-
 
 class cameraReadThread(threading.Thread):
     def __init__(self, cam, width = 1920, height = 1080):
