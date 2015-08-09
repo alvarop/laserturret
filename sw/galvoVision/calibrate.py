@@ -275,6 +275,11 @@ controller = galvoController(streamFileName)
 controller.setLaserPos(X_CENTER, Y_CENTER)
 controller.setLaserState(False)
 
+# 
+# This lets the use move the laser around by moving the mouse around a window
+# By clicking around the area of interest, the calibration can focus inside it
+# to provide better resolution
+# 
 print('Move laser around and click on the boundaries.\nPress ESC to continue')
 
 cv2.namedWindow("trackpad")
@@ -293,6 +298,10 @@ while running:
 
 controller.setLaserState(False)
 
+# 
+# Make sure there's at least one boundary point, then get smallest rectangle
+# that encompasses them all
+# 
 if len(bounds) > 1:
     X_MIN = 1e99
     X_MAX = 0
@@ -308,11 +317,6 @@ if len(bounds) > 1:
             Y_MIN = y
         if y > Y_MAX:
             Y_MAX = y
-
-    print('X_MIN = ' + str(X_MIN))
-    print('X_MAX = ' + str(X_MAX))
-    print('Y_MIN = ' + str(Y_MIN))
-    print('Y_MAX = ' + str(Y_MAX))
 
     X_RANGE = (X_MAX - X_MIN)
     Y_RANGE = (Y_MAX - Y_MIN)
@@ -386,16 +390,26 @@ for laserYPos in range(Y_MIN, Y_MAX, Y_RANGE/10):
 
                 searching = False
 
+# 
+# Sometimes, the wrong thing is detected. Make sure it's at least close to the points around it
+# 
 print("Removing outliers")
 dotTable, removedTable = removeOutliers(dotTable)
 print 'removed ', removedTable
 print("Done removing outliers")
 
+# 
+# Save calibration data to file
+# 
 dotFile = open('dotTable.csv', 'w')
 for laserX, laserY, dotX, dotY in dotTable:
     dotFile.write(str(laserX) + "," + str(laserY) + "," + str(dotX) + "," + str(dotY) + "\n")
 dotFile.close()
 
+# 
+# Generate combined image with all calibration points (and detected locations)
+# This is useful for debugging
+# 
 print("Preparing image")
 for laserX, laserY, dotX, dotY in dotTable:
     cv2.circle(comb, (dotX, dotY), 5, [0,0,255])
