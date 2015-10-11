@@ -10,8 +10,8 @@ void galvoInit() {
 	DAC_InitTypeDef dacConfig;
 
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
-	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_4, GPIO_Mode_AN, GPIO_OType_PP, GPIO_Speed_100MHz, GPIO_PuPd_NOPULL});
-	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_5, GPIO_Mode_AN, GPIO_OType_PP, GPIO_Speed_100MHz, GPIO_PuPd_NOPULL});
+	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_4, GPIO_Mode_AN, GPIO_Speed_100MHz, GPIO_OType_PP, GPIO_PuPd_NOPULL});
+	GPIO_Init(GPIOA, &(GPIO_InitTypeDef){GPIO_Pin_5, GPIO_Mode_AN, GPIO_Speed_100MHz, GPIO_OType_PP, GPIO_PuPd_NOPULL});
 
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_DAC, ENABLE);
 
