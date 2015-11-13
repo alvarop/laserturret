@@ -73,9 +73,9 @@ void consoleInit() {
 	galvoInit();
 
 	// Init Laser
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, ENABLE);
-	GPIO_Init(GPIOE, &(GPIO_InitTypeDef){GPIO_Pin_4, GPIO_Mode_OUT, GPIO_Speed_2MHz, GPIO_OType_PP, GPIO_PuPd_NOPULL});
-	GPIO_SetBits(GPIOE, GPIO_Pin_4);
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
+	GPIO_Init(GPIOD, &(GPIO_InitTypeDef){GPIO_Pin_8, GPIO_Mode_OUT, GPIO_Speed_2MHz, GPIO_OType_PP, GPIO_PuPd_NOPULL});
+	GPIO_SetBits(GPIOD, GPIO_Pin_8);
 }
 
 //
