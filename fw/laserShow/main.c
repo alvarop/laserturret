@@ -26,6 +26,16 @@ void init();
 #define YOFFMAX (500)
 #define YOFFMIN (-50)
 
+typedef enum {
+	MOVING = 0,
+	DRAWING,
+} state_t;
+
+#define MOVING_PERIOD (25)
+
+static state_t currentState = MOVING;
+static uint32_t movingDelay = MOVING_PERIOD;
+
 typedef struct {
 	uint16_t x;
 	uint16_t y;
@@ -44,15 +54,15 @@ size_t pathLens[] = {sizeof(path0)/sizeof(path_t), sizeof(path1)/sizeof(path_t),
 
 
 
-static int16_t xOff, yOff;
-static int8_t xSpd, ySpd;
+// static int16_t xOff, yOff;
+// static int8_t xSpd, ySpd;
 
 static uint32_t pathIndex = 0;
 static uint32_t currentPath = 0;
 
 void controlLoopInit() {
-	xSpd = 20;
-	ySpd = -24;
+	// xSpd = 20;
+	// ySpd = -24;
 
 	TIM_TimeBaseInitTypeDef timerConfig;
 
@@ -79,42 +89,56 @@ void controlLoopInit() {
 	TIM_Cmd(TIM9, ENABLE);
 }
 
-
-
 void TIM1_BRK_TIM9_IRQHandler(void) {
 	uint32_t sr = TIM9->SR;
 	TIM9->SR &= ~sr;
 
 	if(sr & TIM_FLAG_Update) {
-		
-		galvoSet(0, paths[currentPath][pathIndex].x/2 + 256);
-		galvoSet(1, paths[currentPath][pathIndex].y/2 + 256);
-		GPIO_SetBits(GPIOD, GPIO_Pin_8);
-		
-		pathIndex += 1;
+		switch(currentState) {
+			case DRAWING: {
+				galvoSet(0, paths[currentPath][pathIndex].x/2 + 256);
+				galvoSet(1, paths[currentPath][pathIndex].y/2 + 256);
+				GPIO_SetBits(GPIOD, GPIO_Pin_8);
+				
+				pathIndex += 1;
 
-		if(pathIndex >= pathLens[currentPath]) {
-			// Laser off?
-			pathIndex = 0;
-			GPIO_ResetBits(GPIOD, GPIO_Pin_8);
+				if(pathIndex >= pathLens[currentPath]) {
+					// Laser off?
+					pathIndex = 0;
+					GPIO_ResetBits(GPIOD, GPIO_Pin_8);
 
-			currentPath++;
+					// Queue the next path for drawing
+					currentPath++;
 
-			if(currentPath >= sizeof(paths)/sizeof(path_t *)) {
-				currentPath = 0;
+					// Wrap around if necsesary
+					if(currentPath >= sizeof(paths)/sizeof(path_t *)) {
+						currentPath = 0;
+					}
+
+					// Start moving to the first point on the next path
+					galvoSet(0, paths[currentPath][pathIndex].x/2 + 256);
+					galvoSet(1, paths[currentPath][pathIndex].y/2 + 256);
+
+					movingDelay = MOVING_PERIOD;
+					currentState = MOVING;
+				}
+
+				break;
 			}
 
-			galvoSet(0, paths[currentPath][pathIndex].x/2 + 256);
-			galvoSet(1, paths[currentPath][pathIndex].y/2 + 256);
+			case MOVING: {
+				if(--movingDelay == 0) {
+					currentState = DRAWING;
+				}
+				break;
+			}
 		}
 	}
 }
 
-#define MOVE_DELAY_MS (500)
-
 int main(void) {
 	uint32_t nextBlink;
-	uint32_t nextMove;
+	// uint32_t nextMove;
 
 	uint32_t blinkState = 0;
 	init();
@@ -123,7 +147,7 @@ int main(void) {
 	setbuf(stdout, NULL);
 
 	nextBlink = tickMs + BLINK_DELAY_MS;
-	nextMove = tickMs + MOVE_DELAY_MS;
+	// nextMove = tickMs + MOVE_DELAY_MS;
 	for(;;) {
 
 		consoleProcess();
