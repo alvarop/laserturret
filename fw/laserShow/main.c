@@ -31,7 +31,7 @@ typedef enum {
 	DRAWING,
 } state_t;
 
-#define MOVING_PERIOD (25)
+#define MOVING_PERIOD (10)
 
 static state_t currentState = MOVING;
 static uint32_t movingDelay = MOVING_PERIOD;
