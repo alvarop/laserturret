@@ -21,12 +21,10 @@ def get_paths_strings(filename):
 
 	return path_strings
 
-def get_points_from_path(path_str):
+def get_points_from_path(path, num_points):
 	points = []
-	path = parse_path(path_str)
-
-	for x in range(1,(TOTAL_POINTS + 1)):
-		point = path.point(x/float(TOTAL_POINTS))
+	for x in range(0,(num_points + 1)):
+		point = path.point(x/float(num_points))
 		points.append([point.real, point.imag])
 
 	return points
@@ -52,7 +50,9 @@ max_x = 0
 max_y = 0
 
 for path_str in path_strings:
-	new_points = get_points_from_path(path_str)
+	path = parse_path(path_str)
+	num_points = 40
+	new_points = get_points_from_path(path, num_points)
 	points.append(new_points)
 	local_min_x = min(new_points, key=itemgetter(0))[0]
 	local_min_y = min(new_points, key=itemgetter(1))[1]
