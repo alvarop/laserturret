@@ -39,10 +39,16 @@ def normalize_points(points):
         points[x][0] = (points[x][0] - min_x)/int(max_x - min_x)
         points[x][1] = (points[x][1] - min_y)/int(max_y - min_y)
 
+parser = argparse.ArgumentParser(description='svg draw and other things too!')
+parser.add_argument('--file', action='store', required=True)
+parser.add_argument('--points', action='store', default=TOTAL_POINTS, type=int)
+
+args = parser.parse_args()
+
 im = Image.new('RGB', (1024,1024))
 draw = ImageDraw.Draw(im)
 
-path_strings = get_paths_strings(sys.argv[1])
+path_strings = get_paths_strings(args.file)
 points = []
 paths = []
 total_path_len = 0.0
@@ -63,7 +69,7 @@ for path_str in path_strings:
 for path, path_len in paths:
     
     # Get a number of points relative to length of path compared to total
-    num_points = int(path_len/total_path_len * TOTAL_POINTS)
+    num_points = int(path_len/total_path_len * args.points)
 
     new_points = get_points_from_path(path, num_points)
     
