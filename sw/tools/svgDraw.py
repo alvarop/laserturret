@@ -43,17 +43,31 @@ draw = ImageDraw.Draw(im)
 
 path_strings = get_paths_strings(sys.argv[1])
 points = []
+paths = []
+total_path_len = 0.0
 
 min_x = 1e99
 min_y = 1e99
 max_x = 0
 max_y = 0
 
+# Get path objects from strings and path lengths
 for path_str in path_strings:
 	path = parse_path(path_str)
-	num_points = 40
+	path_len = path.length(1e-5)
+	paths.append([path, path_len])
+	total_path_len += path_len
+
+# Get points from paths and compute bounds
+for path, path_len in paths:
+	
+	# Get a number of points relative to length of path compared to total
+	num_points = int(path_len/total_path_len * TOTAL_POINTS)
+
 	new_points = get_points_from_path(path, num_points)
+	
 	points.append(new_points)
+	
 	local_min_x = min(new_points, key=itemgetter(0))[0]
 	local_min_y = min(new_points, key=itemgetter(1))[1]
 	local_max_x = max(new_points, key=itemgetter(0))[0]
@@ -71,6 +85,7 @@ for path_str in path_strings:
 	if(local_min_y < min_y):
 		min_y = local_min_y
 
+# Normalize and draw paths
 for path_points in points:
 	normalize_points(path_points)
 	draw_path(path_points, draw)
